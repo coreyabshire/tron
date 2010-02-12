@@ -18,6 +18,24 @@ def adjacent_floor(board, origin):
     "Return the positions around origin that are floor spaces (open)."
     return [c for c in board.adjacent(origin) if board[c] == tron.FLOOR]
 
+def terminal_test(board):
+    "Determine whether this board is at an end game state."
+    return not adjacent_floor(board, board.me()) \
+        or not adjacent_floor(board, board.them())
+
+def utility(board, player):
+    me_stuck = not adjacent_floor(board, board.me())
+    them_stuck = not adjacent_floor(board, board.them())
+    if me_stuck and them_stuck:
+        return 0
+    elif me_stuck or them_stuck:
+        if player == tron.ME:
+            return me_stuck and -1 or 1
+        else:
+            return me_stuck and 1 or -1
+    else:
+        return 0
+
 def which_move(board):
 
     # fill in your code here. it must return one of the following directions:

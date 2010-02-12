@@ -18,5 +18,19 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(MyTronBot.adjacent_floor(board, board.me()), [(2,1)])
         self.assertEqual(MyTronBot.adjacent_floor(board, board.them()), [(1,3)])
         
+    def test_terminal_test(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        self.assertFalse(MyTronBot.terminal_test(board))
+        board.board[2] = '######'
+        self.assertTrue(MyTronBot.terminal_test(board))
+        
+    def test_utility(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        self.assertEqual(MyTronBot.utility(board, tron.ME), 0)
+        self.assertEqual(MyTronBot.utility(board, tron.THEM), 0)
+        board.board[2] = '######'
+        self.assertEqual(MyTronBot.utility(board, tron.ME), -1)
+        self.assertEqual(MyTronBot.utility(board, tron.THEM), 1)
+
 if __name__ == '__main__':
     unittest.main(defaultTest='MyTestCase')
