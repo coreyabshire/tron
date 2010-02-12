@@ -1,0 +1,2 @@
+PYBOTHOME=$TRON_HOME/src
+java -jar $TRON_HOME/engine/Tron.jar $TRON_HOME/maps/$1.txt "python $PYBOTHOME/$2.py" "python $PYBOTHOME/$3.py" 0 1
