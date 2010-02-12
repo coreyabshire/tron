@@ -1,0 +1,19 @@
+# maketron: builds my submission file
+
+# get rid of the old directories
+rm -rf build
+rm -rf dist
+
+# create the new ones
+mkdir build
+mkdir dist
+
+# copy the starter package
+cp -R starters/python build
+
+# copy my code into it
+cp -R src/* build/python
+
+# create the submission file
+cd build/
+zip -r ../dist/tron.zip *
