@@ -17,5 +17,6 @@ def which_move(board):
     return random.choice(board.moves())
 
 # you do not need to modify this part
-for board in tron.Board.generate():
-    tron.move(which_move(board))
+if __name__ == "__main__":
+    for board in tron.Board.generate():
+        tron.move(which_move(board))
