@@ -13,5 +13,10 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(board[1,2], tron.WALL, 'expected WALL')
         self.assertEqual(board[1,3], tron.FLOOR, 'expected FLOOR')
 
+    def test_adjacent_floor(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        self.assertEqual(MyTronBot.adjacent_floor(board, board.me()), [(2,1)])
+        self.assertEqual(MyTronBot.adjacent_floor(board, board.them()), [(1,3)])
+        
 if __name__ == '__main__':
     unittest.main(defaultTest='MyTestCase')

@@ -14,6 +14,10 @@ def read_board(filename):
     f.close()
     return tron.Board(width, height, board)
 
+def adjacent_floor(board, origin):
+    "Return the positions around origin that are floor spaces (open)."
+    return [c for c in board.adjacent(origin) if board[c] == tron.FLOOR]
+
 def which_move(board):
 
     # fill in your code here. it must return one of the following directions:
