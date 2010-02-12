@@ -1,0 +1,2 @@
+cd $TRON_HOME/build/python
+java -jar engine/Tron.jar maps/u.txt "python MyTronBot.py" "java -jar example_bots/RunAway.jar" 0 1
