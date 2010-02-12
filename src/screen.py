@@ -1,33 +1,46 @@
+import os, sys
 from Tkinter import *
 
-master = Tk()
+delay_ms = len(sys.argv) > 1 and int(float(sys.argv[1]) * 1000) or 100
+squaresize = len(sys.argv) > 2 and int(sys.argv[2]) or 15
 
-squaresize = 10
-gridheight = 15
-gridwidth = 15
+root = Tk()
 
-w = Canvas(master, width=squaresize*gridwidth, height=squaresize*gridheight)
+root.bind("<Escape>", lambda e: quit())
+
+dims = sys.stdin.readline().split(" ")
+gridwidth = int(dims[0])
+gridheight = int(dims[1])
+lines = [sys.stdin.readline() for i in range(gridheight)]
+
+colors = { "#": "gray", "1": "red", "2": "blue", " ": "white" }
+
+w = Canvas(root, width=squaresize*gridwidth, height=squaresize*gridheight)
 w.pack()
 
 grid = []
 
-for y in range(gridheight):
-    line = []
-    for x in range(gridwidth):
-        x1 = x * squaresize
-        x2 = x1 + squaresize
-        y1 = y * squaresize
-        y2 = y1 + squaresize
-        r = w.create_rectangle(x1, y1, x2, y2, fill='white')
-        line.append(r)
-    grid.append(line)
+def draw(lines):
+    for y in range(gridheight):
+        line = []
+        for x in range(gridwidth):
+            x1 = x * squaresize
+            x2 = x1 + squaresize
+            y1 = y * squaresize
+            y2 = y1 + squaresize
+            r = w.create_rectangle(x1, y1, x2, y2, fill=colors[lines[y][x]])
+            line.append(r)
+            grid.append(line)
 
-w.itemconfigure(grid[5][5], fill = 'red')
-w.itemconfigure(grid[10][10], fill = 'blue')
-for y in range(gridheight):
-    w.itemconfigure(grid[y][0], fill='gray')
-    w.itemconfigure(grid[y][gridwidth-1], fill='gray')
-for x in range(gridwidth):
-    w.itemconfigure(grid[0][x], fill='gray')
-    w.itemconfigure(grid[gridheight-1][x], fill='gray')
+def update():
+    line1 = sys.stdin.readline().strip()
+    if line1 == "%d %d" % (gridwidth,gridheight):
+        lines = [sys.stdin.readline() for i in range(gridheight)]
+        draw(lines)
+        root.after(delay_ms, update)
+    else:
+        print line1
+
+draw(lines)
+root.after(delay_ms, update)
 mainloop()
