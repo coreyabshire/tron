@@ -24,6 +24,7 @@ def terminal_test(board):
         or not adjacent_floor(board, board.them())
 
 def utility(board, player):
+    "Did player on board is a win (1), lose (-1), or draw (0)."
     me_stuck = not adjacent_floor(board, board.me())
     them_stuck = not adjacent_floor(board, board.them())
     if me_stuck and them_stuck:
