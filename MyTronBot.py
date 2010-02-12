@@ -6,6 +6,14 @@ import tron
 
 import random
 
+def read_board(filename):
+    "Read a board from a map file."
+    f = open(filename)
+    width,height = [int(s) for s in f.readline().strip().split()]
+    board = [s[:width] for s in f.readlines()]
+    f.close()
+    return tron.Board(width, height, board)
+
 def which_move(board):
 
     # fill in your code here. it must return one of the following directions:
