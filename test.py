@@ -32,5 +32,23 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(MyTronBot.utility(board, tron.ME), -1)
         self.assertEqual(MyTronBot.utility(board, tron.THEM), 1)
 
+    def test_set_char(self):
+        self.assertEqual(MyTronBot.set_char('abc',0,'d'), 'dbc')
+        self.assertEqual(MyTronBot.set_char('abc',1,'d'), 'adc')
+        self.assertEqual(MyTronBot.set_char('abc',2,'d'), 'abd')
+
+    def test_try_move(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        self.assertEquals(board.me(), (1,1))
+        self.assertEquals(board.them(), (1,4))
+        self.assertEquals(board[2,1], tron.FLOOR, 'should be FLOOR')
+        next = MyTronBot.try_move(board, tron.ME, tron.SOUTH)
+        self.assertEquals(next.me(), (2,1), 'should have changed')
+        self.assertEquals(next.them(), (1,4), 'should not have changed')
+        self.assertEquals(next[1,1], tron.WALL, 'should now be WALL')
+        self.assertEquals(board.me(), (1,1), 'should not have changed')
+        self.assertEquals(board.them(), (1,4), 'should not have changed')
+        self.assertEquals(board[2,1], tron.FLOOR, 'should still be FLOOR')
+        
 if __name__ == '__main__':
     unittest.main(defaultTest='MyTestCase')

@@ -6,6 +6,8 @@ import tron
 
 import random
 
+infinity = 1.0e400
+
 def read_board(filename):
     "Read a board from a map file."
     f = open(filename)
@@ -36,6 +38,19 @@ def utility(board, player):
             return me_stuck and 1 or -1
     else:
         return 0
+
+def set_char(s, i, c):
+    "Set character at index i in string s to c."
+    return s[:i] + c + s[i+1:]
+    
+def try_move(board, player, move):
+    "Create a copy of board where player is moved in direction."
+    lines = [line for line in board.board] # shallow copy
+    (y1,x1) = board.find(player)
+    (y2,x2) = board.rel(move, (y1,x1))
+    lines[y1] = set_char(lines[y1], x1, tron.WALL)
+    lines[y2] = set_char(lines[y2], x2, player)
+    return tron.Board(board.width, board.height, lines)
 
 def which_move(board):
 
