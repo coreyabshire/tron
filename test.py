@@ -1,6 +1,10 @@
 import tron, MyTronBot, unittest
 
-class MyTestCase(unittest.TestCase):
+#_____________________________________________________________________
+# Board Helper Tests
+#
+
+class BoardHelperTestCase(unittest.TestCase):
     
     def test_read_board(self):
         board = MyTronBot.read_board('maps/test-board.txt')
@@ -18,19 +22,19 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(MyTronBot.adjacent_floor(board, board.me()), [(2,1)])
         self.assertEqual(MyTronBot.adjacent_floor(board, board.them()), [(1,3)])
         
-    def test_terminal_test(self):
+    def test_is_game_over(self):
         board = MyTronBot.read_board('maps/test-board.txt')
-        self.assertFalse(MyTronBot.terminal_test(board))
+        self.assertFalse(MyTronBot.is_game_over(board))
         board.board[2] = '######'
-        self.assertTrue(MyTronBot.terminal_test(board))
+        self.assertTrue(MyTronBot.is_game_over(board))
         
-    def test_utility(self):
+    def test_win_lose_or_draw(self):
         board = MyTronBot.read_board('maps/test-board.txt')
-        self.assertEqual(MyTronBot.utility(board, tron.ME), 0)
-        self.assertEqual(MyTronBot.utility(board, tron.THEM), 0)
+        self.assertEqual(MyTronBot.win_lose_or_draw(board, tron.ME), 0)
+        self.assertEqual(MyTronBot.win_lose_or_draw(board, tron.THEM), 0)
         board.board[2] = '######'
-        self.assertEqual(MyTronBot.utility(board, tron.ME), -1)
-        self.assertEqual(MyTronBot.utility(board, tron.THEM), 1)
+        self.assertEqual(MyTronBot.win_lose_or_draw(board, tron.ME), -1)
+        self.assertEqual(MyTronBot.win_lose_or_draw(board, tron.THEM), 1)
 
     def test_set_char(self):
         self.assertEqual(MyTronBot.set_char('abc',0,'d'), 'dbc')
@@ -49,6 +53,53 @@ class MyTestCase(unittest.TestCase):
         self.assertEquals(board.me(), (1,1), 'should not have changed')
         self.assertEquals(board.them(), (1,4), 'should not have changed')
         self.assertEquals(board[2,1], tron.FLOOR, 'should still be FLOOR')
+
+    def test_opponent(self):
+        self.assertEquals(MyTronBot.opponent(tron.ME), tron.THEM)
+        self.assertEquals(MyTronBot.opponent(tron.THEM), tron.ME)
+
+#_____________________________________________________________________
+# AIMA Alpha-Beta Interface Test
+#
+
+class AlphaBetaTestCase(unittest.TestCase):
+
+    def setUp(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        self.game = MyTronBot.TronGame()
+        self.state = MyTronBot.make_state(board, tron.ME)
+
+    def test_legal_moves(self):
+        self.assertEquals(self.game.legal_moves(self.state), [tron.SOUTH])
+        next = self.game.make_move(tron.SOUTH, self.state)
+        self.assertEquals(self.game.legal_moves(next), [tron.WEST])
+
+    def test_make_move(self):
+        next = self.state
+        self.assertEquals(next.board.me(), (1,1))
+        self.assertEquals(next.board.them(), (1,4))
+        next = self.game.make_move(tron.SOUTH, next)
+        self.assertEquals(next.board.me(), (2,1))
+        self.assertEquals(next.board.them(), (1,4))
+        next = self.game.make_move(tron.WEST, next)
+        self.assertEquals(next.board.me(), (2,1))
+        self.assertEquals(next.board.them(), (1,3))
+
+    def test_utility(self):
+        next = self.state
+        self.assertEquals(self.game.utility(next, tron.ME), 0)
+        self.assertEquals(self.game.utility(next, tron.THEM), 0)
+        board = next.board
+        board.board[2] = '######'
+        self.assertEquals(self.game.utility(next, tron.ME), -1)
+        self.assertEquals(self.game.utility(next, tron.THEM), 1)
+        
+    def test_terminal_test(self):
+        next = self.state
+        self.assertFalse(self.game.terminal_test(next))
+        board = next.board
+        board.board[2] = '######'
+        self.assertTrue(self.game.terminal_test(next))
         
 if __name__ == '__main__':
-    unittest.main(defaultTest='MyTestCase')
+    unittest.main()
