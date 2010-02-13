@@ -173,8 +173,51 @@ def moves_between(path):
 # Environment Recognition
 #
 
-def spaces_analysis(board):
-    pass
+def valid_coords(board, (y,x)):
+    "Are the coordinates within the board dimensions?"
+    return 0 <= y < board.height and 0 <= x < board.width
+
+def tile_is_a(kind_of):
+    "Return a tile matcher that checks if the tile at coords is kind_of."
+    def fn(board, coords):
+        if valid_coords(board, coords):
+            return board[coords] == kind_of
+    return fn
+
+is_wall = tile_is_a(tron.WALL)
+is_floor = tile_is_a(tron.FLOOR)
+
+def tiles_matching(board, fn):
+    "Collect all tiles on the board matching fn."
+    tiles = []
+    for y in xrange(board.height):
+        for x in xrange(board.width):
+            if fn(board, (y,x)):
+                tiles.append((y,x))
+    return tiles
+
+def adjacent(board, coords, fn):
+    "Find all tiles on board adjacent to coords matching fn."
+    return [a for a in board.adjacent(coords) if fn(board, a)]
+
+def find_walls(board):
+    "Find all the walls (contingous series of wall tiles)."
+    wall_tiles_remaining = set(tiles_matching(board, is_wall))
+    walls = []
+    while wall_tiles_remaining:
+        wall = set()
+        rest_of_wall = [wall_tiles_remaining.pop()]
+        while rest_of_wall:
+            another = rest_of_wall.pop()
+            wall.add(another)
+            adjacent_walls = adjacent(board, another, is_wall)
+            for x in adjacent_walls:
+                if x not in wall:
+                    rest_of_wall.append(x)
+                    if x in wall_tiles_remaining:
+                        wall_tiles_remaining.remove(x)
+        walls.append(wall)
+    return walls
 
 #_____________________________________________________________________
 # Strategy Definition
@@ -189,6 +232,18 @@ def random_decision(board):
     # Note that board.moves will produce [NORTH] if there are no
     # legal moves available.
     return random.choice(board.moves())
+
+def most_open_decision(board):
+    coords = board.me()
+    best_move = tron.NORTH
+    highest = 0
+    for move in board.moves():
+        next = try_move(board, tron.ME, move)
+        count = count_around(next, board.rel(move, coords))
+        if count >= highest:
+            highest = count
+            best_move = move
+    return best_move
 
 def free_decision(board):
     bestcount = -1
@@ -272,7 +327,7 @@ def which_move(board):
     if not adjacent_floor(board, board.me()):
         return tron.NORTH
 
-    return closecall_decision(board)
+    return most_open_decision(board)
 
 # you do not need to modify this part - much :) ...
 if __name__ == "__main__":

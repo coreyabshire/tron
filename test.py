@@ -158,6 +158,60 @@ class ShortestPathTestCase(unittest.TestCase):
             self.assertEquals(actual, expected)
 
 #_____________________________________________________________________
+# Environment Recognition Tests
+#
+
+class EnvironmentRecognitionTestCase(unittest.TestCase):
+
+    def test_valid_coords(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        self.assertTrue(MyTronBot.valid_coords(board, (0,0)))
+        self.assertTrue(MyTronBot.valid_coords(board, (0,5)))
+        self.assertTrue(MyTronBot.valid_coords(board, (2,2)))
+        self.assertTrue(MyTronBot.valid_coords(board, (3,0)))
+        self.assertTrue(MyTronBot.valid_coords(board, (3,5)))
+        self.assertFalse(MyTronBot.valid_coords(board, (-1,-1)))
+        self.assertFalse(MyTronBot.valid_coords(board, (-1,0)))
+        self.assertFalse(MyTronBot.valid_coords(board, (0,-1)))
+        self.assertFalse(MyTronBot.valid_coords(board, (0,6)))
+        self.assertFalse(MyTronBot.valid_coords(board, (6,6)))
+        self.assertFalse(MyTronBot.valid_coords(board, (4,0)))
+
+    def test_tile_is_a(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        is_wall = MyTronBot.tile_is_a(tron.WALL)
+        is_floor = MyTronBot.tile_is_a(tron.FLOOR)
+        known_wall = [(0,0),(0,5),(3,0),(3,5)]
+        known_floor = [(2,1),(2,2),(2,3),(1,3)]
+        for coords in known_wall:
+            self.assertTrue(is_wall(board, coords))
+            self.assertFalse(is_floor(board, coords))
+        for coords in known_floor:
+            self.assertFalse(is_wall(board, coords))
+            self.assertTrue(is_floor(board, coords))
+    
+    def test_tiles_matching(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        wall  = MyTronBot.tiles_matching(board, MyTronBot.is_wall)
+        floor = MyTronBot.tiles_matching(board, MyTronBot.is_floor)
+        self.assertEquals(len(wall ), 18)
+        self.assertEquals(len(floor), 4)
+        
+    def test_adjacent(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        coords = board.me()
+        wall = MyTronBot.adjacent(board, coords, MyTronBot.is_wall)
+        floor = MyTronBot.adjacent(board, coords, MyTronBot.is_floor)
+        self.assertEquals(len(wall), 3)
+        self.assertEquals(len(floor), 1)
+
+    def test_find_walls(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        walls = MyTronBot.find_walls(board)
+        self.assertEquals(len(walls), 1)
+        self.assertEquals(len(walls[0]), 18)
+        
+#_____________________________________________________________________
 # Run tests if script.
 #
 
