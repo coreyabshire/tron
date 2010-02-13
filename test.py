@@ -17,10 +17,39 @@ class BoardHelperTestCase(unittest.TestCase):
         self.assertEqual(board[1,2], tron.WALL, 'expected WALL')
         self.assertEqual(board[1,3], tron.FLOOR, 'expected FLOOR')
 
+    def test_adjacent_nonwall(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        self.assertEqual(MyTronBot.adjacent_floor(board, board.me()), [(2,1)])
+        self.assertEqual(MyTronBot.adjacent_floor(board, board.them()), [(1,3)])
+        
     def test_adjacent_floor(self):
         board = MyTronBot.read_board('maps/test-board.txt')
         self.assertEqual(MyTronBot.adjacent_floor(board, board.me()), [(2,1)])
         self.assertEqual(MyTronBot.adjacent_floor(board, board.them()), [(1,3)])
+
+    def test_surrounding_offset_array(self):
+        soa = MyTronBot.surrounding_offset_array()
+        self.assertEqual(len(soa), 9)
+        self.assertEqual(soa[0], (-1,-1))
+        self.assertEqual(soa[4], (0,0))
+        self.assertEqual(soa[8], (1,1))
+
+    def test_offset(self):
+        self.assertEquals(MyTronBot.offset((1,1),(1,1)),(2,2))
+        self.assertEquals(MyTronBot.offset((3,4),(-1,-1)),(2,3))
+        self.assertEquals(MyTronBot.offset((3,2),(1,0)),(4,2))
+    
+    def test_surrounding_nonfloor(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        self.assertEquals(len(MyTronBot.surrounding_nonfloor(board,(1,2))),5)
+
+    def move_made(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        fn = lambda(a,b): MyTronBot.move_made(board, a, b)
+        self.assertEquals(fn((1,1),(2,1)), tron.SOUTH)
+        self.assertEquals(fn((2,1),(1,1)), tron.NORTH)
+        self.assertEquals(fn((1,1),(1,2)), tron.EAST)
+        self.assertEquals(fn((1,2),(1,1)), tron.WEST)
         
     def test_is_game_over(self):
         board = MyTronBot.read_board('maps/test-board.txt')
@@ -119,6 +148,10 @@ class ShortestPathTestCase(unittest.TestCase):
             expected = maps[m]
             actual = MyTronBot.moves_between(path)
             self.assertEquals(actual, expected)
+
+#_____________________________________________________________________
+# Run tests if script.
+#
 
 if __name__ == '__main__':
     unittest.main()

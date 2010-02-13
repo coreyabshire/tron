@@ -2,7 +2,7 @@
 
 """TronBot implementation by Corey Abshire."""
 
-import tron, games, random, utils, dijkstra, math
+import tron, games, random, utils, dijkstra, math, numpy
 
 #_____________________________________________________________________
 # Board Helper Functions
@@ -23,6 +23,23 @@ def adjacent_nonwall(board, origin):
 def adjacent_floor(board, origin):
     "Return the positions around origin that are floor spaces (open)."
     return [c for c in board.adjacent(origin) if board[c] == tron.FLOOR]
+
+def surrounding_offset_array():
+    z = [-1, 0, 1]
+    return [(s,t) for t in z for s in z]
+
+SOA = surrounding_offset_array()
+
+def offset((y,x), (t,s)):
+    return (y+t, x+s)
+
+def surrounding_nonfloor(board, origin):
+    a = [offset(origin, o) for o in SOA]
+    return [c for c in a if board[c] != tron.FLOOR]
+
+def move_made(board, a, b):
+    "Return the move needed to get from a to b. Assumes adjacency."
+    return [d for d in tron.DIRECTIONS if board.rel(d, a) == b][0]
 
 def is_game_over(board):
     "Determine whether this board is at an end game state."
@@ -136,22 +153,81 @@ def moves_between(path):
     return len(path) - 2
 
 #_____________________________________________________________________
-# Strategy Interface Layer
+# Environment Recognition
+#
+
+def spaces_analysis(board):
+    pass
+
+#_____________________________________________________________________
+# Strategy Definition
 #
 
 # Create a single instance of the game implementation to
 # use in interfacing to the AIMA alpha-beta search routine.
 game = TronGame() 
-        
+
 def random_decision(board):
     # For now, choose a legal move randomly.
     # Note that board.moves will produce [NORTH] if there are no
     # legal moves available.
     return random.choice(board.moves())
 
+def free_decision(board):
+    bestcount = -1
+    bestmove = tron.NORTH
+    for dir in board.moves():
+        dest = board.rel(dir)
+        count = 0
+        for pos in board.adjacent(dest):
+            if board[pos] == tron.FLOOR:
+                count += 1
+        if count > bestcount:
+            bestcount = count
+            bestmove = dir
+    return bestmove
+
+# preference order of directions
+ORDER = list(tron.DIRECTIONS)
+random.shuffle(ORDER)
+
+def wall_decision(board):
+
+    decision = board.moves()[0]
+
+    for dir in ORDER:
+
+        # where we will end up if we move this way
+        dest = board.rel(dir)
+
+        # destination is passable?
+        if not board.passable(dest):
+            continue
+
+        # positions adjacent to the destination
+        adj = board.adjacent(dest)
+
+        # if any wall adjacent to the destination
+        if any(board[pos] == tron.WALL for pos in adj):
+            decision = dir
+            break
+
+    return decision
+
 def alphabeta_decision(board):
     "Find a move based on an alpha-beta search of the game tree."
-    return games.alphabeta_search(make_state(board, tron.ME), game)
+    return games.alphabeta_search(make_state(board, tron.ME), game, d=6)
+
+def closecall_decision(board):
+    try:
+        path = shortest_path(board, board.me(), board.them())
+        n = moves_between(path)
+        if (n <= 3):
+            return alphabeta_decision(board)
+        else:
+            return move_made(board, board.me(), path[1])
+    except KeyError:
+        return alphabeta_decision(board)
 
 # TODO: Test case on which_move which tests that index out of
 #       range no longer occurs when we have no move available
@@ -179,7 +255,7 @@ def which_move(board):
     if not adjacent_floor(board, board.me()):
         return tron.NORTH
 
-    return alphabeta_decision(board)
+    return closecall_decision(board)
 
 # you do not need to modify this part - much :) ...
 if __name__ == "__main__":
