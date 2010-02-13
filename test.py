@@ -87,6 +87,14 @@ class BoardHelperTestCase(unittest.TestCase):
         self.assertEquals(MyTronBot.opponent(tron.ME), tron.THEM)
         self.assertEquals(MyTronBot.opponent(tron.THEM), tron.ME)
 
+    def test_count_around(self):
+        board = MyTronBot.read_board('maps/u.txt')
+        self.assertEquals(MyTronBot.count_around(board, board.me()), 97)
+        board = MyTronBot.read_board('maps/ring.txt')
+        self.assertEquals(MyTronBot.count_around(board, board.me()), 131)
+        board = MyTronBot.read_board('maps/test-board.txt')
+        self.assertEquals(MyTronBot.count_around(board, board.me()), 4)
+
 #_____________________________________________________________________
 # AIMA Alpha-Beta Interface Test
 #

@@ -85,6 +85,23 @@ def opponent(player):
     else:
         return tron.ME
 
+def count_around(board, coords, around=adjacent_floor):
+    "Flood fill to count all the open spaces around coords."
+    # http://mail.python.org/pipermail/image-sig/2005-September/003559.html
+    count = 0
+    edge = [coords]
+    seen = set()
+    while edge:
+        newedge = []
+        for tile in edge:
+            for adj in around(board, tile):
+                if adj not in seen:
+                    count += 1
+                    seen.add(adj)
+                    newedge.append(adj)
+        edge = newedge
+    return count
+
 #_____________________________________________________________________
 # AIMA Alpha-Beta Search Interface
 #
