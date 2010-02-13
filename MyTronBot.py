@@ -2,7 +2,7 @@
 
 """TronBot implementation by Corey Abshire."""
 
-import tron, games, random, utils
+import tron, games, random, utils, dijkstra, math
 
 #_____________________________________________________________________
 # Board Helper Functions
@@ -15,6 +15,10 @@ def read_board(filename):
     board = [s[:width] for s in f.readlines()]
     f.close()
     return tron.Board(width, height, board)
+
+def adjacent_nonwall(board, origin):
+    "Return the positions around origin that are not walls."
+    return [c for c in board.adjacent(origin) if board[c] != tron.WALL]
 
 def adjacent_floor(board, origin):
     "Return the positions around origin that are floor spaces (open)."
@@ -97,6 +101,39 @@ class TronGame(games.Game):
     def display(self, state):
         "Print the board to the console."
         print_board(state.board)
+
+#_____________________________________________________________________
+# Shortest Path
+#
+
+class DijkstraNeighbors():
+    "Adapter for Dijkstra algorithm implementation. Dict of neighbors."
+    
+    def __init__(self, neighbors):
+        self.neighbors = neighbors
+        
+    def __iter__(self):
+        return self.neighbors.__iter__()
+    
+    def __getitem__(self, coords):
+        return 1 # all neighbors are 1 square away in Tron
+        
+class DijkstraGraph():
+    "Adapter for Dijkstra algorithm implementation. Graph of tiles."
+
+    def __init__(self, board):
+        self.board = board
+
+    def __getitem__(self, coords):
+        return DijkstraNeighbors(adjacent_nonwall(self.board, coords))
+
+def shortest_path(board, start, end):
+    "Return the shortest path between two points on the board."
+    return dijkstra.shortestPath(DijkstraGraph(board), start, end)
+
+def moves_between(path):
+    "Number of moves it would take for two players to traverse the path."
+    return len(path) - 2
 
 #_____________________________________________________________________
 # Strategy Interface Layer

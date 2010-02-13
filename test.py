@@ -101,5 +101,24 @@ class AlphaBetaTestCase(unittest.TestCase):
         board.board[2] = '######'
         self.assertTrue(self.game.terminal_test(next))
         
+#_____________________________________________________________________
+# Shortest Path Tests
+#
+
+class ShortestPathTestCase(unittest.TestCase):
+
+    def test_shortest_path(self):
+        maps = { 'maps/u.txt': 27,
+                 'maps/ring.txt': 15,
+                 'maps/huge-room.txt': 93,
+                 'maps/empty-room.txt': 23,
+                 'maps/test-board.txt': 4 }
+        for m in maps:
+            board = MyTronBot.read_board(m)
+            path = MyTronBot.shortest_path(board, board.me(), board.them())
+            expected = maps[m]
+            actual = MyTronBot.moves_between(path)
+            self.assertEquals(actual, expected)
+
 if __name__ == '__main__':
     unittest.main()
