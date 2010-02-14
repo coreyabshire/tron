@@ -4,7 +4,7 @@
 
 from collections import deque
 import random, math, numpy
-import optparse, logging
+import optparse, logging, time
 import games, utils
 import dijkstra
 import tron
@@ -25,6 +25,7 @@ DIRECTION_NAMES = { tron.NORTH : 'NORTH',
 argp = optparse.OptionParser()
 argp.add_option("-d", "--depth", type="int", dest="depth", default=6)
 argp.add_option("-l", "--log", dest="logfile", default=None)
+argp.add_option("-s", "--strategy", default="closecall")
 
 #_____________________________________________________________________
 # Board Helper Functions
@@ -387,10 +388,14 @@ class Environment():
         self.ofm = deque()       # my opponents future moves
 
         self.nmoves = 0          # number of moves seen
+
+        self.start_time = 0      # start time for this move
+        self.times = []          # time taken for each move
     
     def update(self, board):
 
         self.nmoves += 1
+        self.start_time = time.time()
         
         # record board history for pattern recognition
         self.bh.append(board)
@@ -406,6 +411,12 @@ class Environment():
             self.mmh.append(move_made(board, self.mph[-2], self.mph[-1]))
             self.emh.append(move_made(board, self.eph[-2], self.eph[-1]))
 
+    def record_time(self):
+        stop_time = time.time()
+        elapsed = stop_time - self.start_time
+        self.times.append(elapsed)
+        logging.debug("took %s seconds", elapsed)
+            
 env = Environment()
 
 #_____________________________________________________________________
@@ -454,6 +465,9 @@ def which_move(board):
             my_move = closecall_decision(board)
 
     logging.debug('chose %s', DIRECTION_NAMES[my_move])
+
+    # record and log the time this move took to compute
+    env.record_time()
             
     return my_move
 
