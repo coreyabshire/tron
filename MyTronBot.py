@@ -4,9 +4,18 @@
 
 from collections import deque
 import random, math, numpy
+import optparse, logging
 import games, utils
 import dijkstra
 import tron
+
+#_____________________________________________________________________
+# Configuration
+#
+
+argp = optparse.OptionParser()
+argp.add_option("-d", "--depth", dest="depth", default=6)
+argp.add_option("-l", "--log", dest="logfile", default=None)
 
 #_____________________________________________________________________
 # Board Helper Functions
@@ -322,7 +331,7 @@ def alphabeta_decision(board):
     "Find a move based on an alpha-beta search of the game tree."
     state = make_state(board, tron.ME)
     eval_fn = lambda state: evaluate_position(state.board, state.to_move)
-    return games.alphabeta_search(state, game, d=6, eval_fn=eval_fn)
+    return games.alphabeta_search(state, game, d=config.depth, eval_fn=eval_fn)
 
 def closecall_decision(board):
     "Get close to the opponent then solve with alphabeta."
@@ -430,5 +439,10 @@ def which_move(board):
 
 # you do not need to modify this part - much :) ...
 if __name__ == "__main__":
+    config, args = argp.parse_args()
+    if config.logfile:
+        logging.basicConfig(filename=config.logfile, level=logging.DEBUG, \
+                                filemode='w')
+    logging.debug('config: %s', config)
     for board in tron.Board.generate():
         tron.move(which_move(board))
