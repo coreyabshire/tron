@@ -3,6 +3,7 @@
 """TronBot implementation by Corey Abshire."""
 
 import tron, games, random, utils, dijkstra, math, numpy
+from collections import deque
 
 #_____________________________________________________________________
 # Board Helper Functions
@@ -56,14 +57,14 @@ def win_lose_or_draw(board, player):
     me_stuck = not adjacent_floor(board, board.me())
     them_stuck = not adjacent_floor(board, board.them())
     if me_stuck and them_stuck:
-        return 0
+        return -0.5
     elif me_stuck or them_stuck:
         if player == tron.ME:
             return me_stuck and -1 or 1
         else:
             return me_stuck and 1 or -1
     else:
-        return 0
+        return -0.5
 
 def set_char(s, i, c):
     "Return a copy of s with the character at index i replaced with c."
@@ -291,6 +292,7 @@ def alphabeta_decision(board):
     return games.alphabeta_search(make_state(board, tron.ME), game, d=6)
 
 def closecall_decision(board):
+    "Get close to the opponent then solve with alphabeta."
     try:
         path = shortest_path(board, board.me(), board.them())
         n = moves_between(path)
@@ -313,21 +315,85 @@ def closecall_decision(board):
 #       the opponent was already on it.
 
 #_____________________________________________________________________
+# Cache, Analysis, History, etc...
+#
+
+class Environment():
+    "Simple container for agent data."
+
+    def __init__(self):
+        
+        self.first_move = True   # is this our first move or not?
+        self.walls = []          # a list of the walls on this board
+        self.bh = []             # history of all boards received
+        self.mph = []            # my position history
+        self.eph = []            # enemy's position history
+        self.mmh = []            # my move history
+        self.emh = []            # enemy's move history
+
+        self.mfm = deque()       # my future moves
+        self.ofm = deque()       # my opponents future moves
+    
+    def update(self, board):
+
+        # record board history for pattern recognition
+        self.bh.append(board)
+        
+        self.mph.append(board.me())
+        self.eph.append(board.them())
+
+        # capture initial about the board on the first move
+        if self.first_move == True:
+            self.walls = find_walls(board)
+            self.first_move = False
+        else:
+            self.mmh.append(move_made(board, self.mph[-2], self.mph[-1]))
+            self.emh.append(move_made(board, self.eph[-2], self.eph[-1]))
+
+env = Environment()
+
+#_____________________________________________________________________
 # Main Decision Routine
 #
 
 def which_move(board):
     "Determine which move to make given the current board state."
-
+    
     # fill in your code here. it must return one of the following directions:
     #   tron.NORTH, tron.EAST, tron.SOUTH, tron.WEST
+
+    # record history and other facts about the board for use throughout
+    env.update(board)
+
+    # shortest path between me and my enemy, or none if we're disconnected
+    cpath = None
+    cdist = None
+    try:
+        cpath = shortest_path(board, board.me(), board.them())
+        cdist = moves_between(cpath)
+    except KeyError:
+        cpath = None
+
+    # calculate future moves
+    if env.mfm:
+        if not board.passable(board.rel(env.mfm[0], board.me())):
+            env.mfm = deque()
+    if not env.mfm and cpath:
+        for i in xrange(cdist):
+            env.mfm.append(move_made(board, cpath[i], cpath[i+1]))
 
     # in some cases we will be asked to move when there is no
     # move available: it doesn't matter, just return NORTH
     if not adjacent_floor(board, board.me()):
-        return tron.NORTH
+        my_move = tron.NORTH
+    else:
+        if cdist > 3 and env.mfm:
+            my_move = env.mfm.popleft()
+        else:
+            # determine which move I should make
+            my_move = closecall_decision(board)
 
-    return most_open_decision(board)
+    return my_move
 
 # you do not need to modify this part - much :) ...
 if __name__ == "__main__":
