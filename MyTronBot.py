@@ -2,8 +2,11 @@
 
 """TronBot implementation by Corey Abshire."""
 
-import tron, games, random, utils, dijkstra, math, numpy
 from collections import deque
+import random, math, numpy
+import games, utils
+import dijkstra
+import tron
 
 #_____________________________________________________________________
 # Board Helper Functions
