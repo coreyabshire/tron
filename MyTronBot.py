@@ -26,6 +26,7 @@ argp = optparse.OptionParser()
 argp.add_option("-d", "--depth", type="int", dest="depth", default=6)
 argp.add_option("-l", "--log", dest="logfile", default=None)
 argp.add_option("-s", "--strategy", default="main")
+argp.add_option("--hurry", type="float", dest="hurry", default=0.01)
 
 #_____________________________________________________________________
 # Board Helper Functions
@@ -137,6 +138,12 @@ def make_state(board, to_move):
 #       putting something in place that I constantly have
 #       to modify. Maybe record some scenarios like I
 #       started before and write the test cases against it.
+
+def alphabeta_cutoff(state, depth):
+    if depth > config.depth or game.terminal_test(state) or env.need_to_hurry():
+        return True
+    else:
+        return False
 
 def evaluate_position(board, player):
     "Assign a score to this board relative to player."
@@ -342,7 +349,9 @@ def alphabeta_strategy(board):
     "Find a move based on an alpha-beta search of the game tree."
     state = make_state(board, tron.ME)
     eval_fn = lambda state: evaluate_position(state.board, state.to_move)
-    return games.alphabeta_search(state, game, d=config.depth, eval_fn=eval_fn)
+    return games.alphabeta_search(state, game, \
+                                      cutoff_test=alphabeta_cutoff, \
+                                      eval_fn=eval_fn)
 
 def closecall_strategy(board):
     "Get close to the opponent then solve with alphabeta."
@@ -407,15 +416,25 @@ class Environment():
         if self.first_move == True:
             self.walls = find_walls(board)
             self.first_move = False
+            self.time_limit = 3.0
         else:
             self.mmh.append(move_made(board, self.mph[-2], self.mph[-1]))
             self.emh.append(move_made(board, self.eph[-2], self.eph[-1]))
+            self.time_limit = 1.0
 
+    def elapsed(self):
+        return time.time() - self.start_time
+            
     def record_time(self):
-        stop_time = time.time()
-        elapsed = stop_time - self.start_time
+        elapsed = self.elapsed()
         self.times.append(elapsed)
         return elapsed
+
+    def time_remaining(self):
+        return self.time_limit - self.elapsed()
+
+    def need_to_hurry(self):
+        return self.time_remaining() < config.hurry
             
 env = Environment()
 
