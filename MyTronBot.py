@@ -14,7 +14,7 @@ import tron
 #
 
 argp = optparse.OptionParser()
-argp.add_option("-d", "--depth", dest="depth", default=6)
+argp.add_option("-d", "--depth", type="int", dest="depth", default=6)
 argp.add_option("-l", "--log", dest="logfile", default=None)
 
 #_____________________________________________________________________
@@ -149,6 +149,7 @@ def evaluate_position(board, player):
             score = float(p1_room) / float(total)
         else:
             score = -1.0 * float(p2_room) / float(total)
+    logging.debug('score: %s', score)
     return score
         
 class TronGame(games.Game):
