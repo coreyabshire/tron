@@ -439,10 +439,14 @@ def which_move(board):
 
 # you do not need to modify this part - much :) ...
 if __name__ == "__main__":
+    
     config, args = argp.parse_args()
+
     if config.logfile:
         logging.basicConfig(filename=config.logfile, level=logging.DEBUG, \
                                 filemode='w')
+        
     logging.debug('config: %s', config)
+    
     for board in tron.Board.generate():
         tron.move(which_move(board))
