@@ -25,7 +25,7 @@ DIRECTION_NAMES = { tron.NORTH : 'NORTH',
 argp = optparse.OptionParser()
 argp.add_option("-d", "--depth", type="int", dest="depth", default=6)
 argp.add_option("-l", "--log", dest="logfile", default=None)
-argp.add_option("-s", "--strategy", default="closecall")
+argp.add_option("-s", "--strategy", default="main")
 
 #_____________________________________________________________________
 # Board Helper Functions
@@ -279,13 +279,13 @@ def find_walls(board):
 # use in interfacing to the AIMA alpha-beta search routine.
 game = TronGame() 
 
-def random_decision(board):
+def random_strategy(board):
     # For now, choose a legal move randomly.
     # Note that board.moves will produce [NORTH] if there are no
     # legal moves available.
     return random.choice(board.moves())
 
-def most_open_decision(board):
+def most_open_strategy(board):
     coords = board.me()
     best_move = tron.NORTH
     highest = 0
@@ -297,7 +297,7 @@ def most_open_decision(board):
             best_move = move
     return best_move
 
-def free_decision(board):
+def free_strategy(board):
     bestcount = -1
     bestmove = tron.NORTH
     for dir in board.moves():
@@ -315,7 +315,7 @@ def free_decision(board):
 ORDER = list(tron.DIRECTIONS)
 random.shuffle(ORDER)
 
-def wall_decision(board):
+def wall_strategy(board):
 
     decision = board.moves()[0]
 
@@ -338,23 +338,23 @@ def wall_decision(board):
 
     return decision
 
-def alphabeta_decision(board):
+def alphabeta_strategy(board):
     "Find a move based on an alpha-beta search of the game tree."
     state = make_state(board, tron.ME)
     eval_fn = lambda state: evaluate_position(state.board, state.to_move)
     return games.alphabeta_search(state, game, d=config.depth, eval_fn=eval_fn)
 
-def closecall_decision(board):
+def closecall_strategy(board):
     "Get close to the opponent then solve with alphabeta."
     try:
         path = shortest_path(board, board.me(), board.them())
         n = moves_between(path)
         if (n <= 3):
-            return alphabeta_decision(board)
+            return alphabeta_strategy(board)
         else:
             return move_made(board, board.me(), path[1])
     except KeyError:
-        return alphabeta_decision(board)
+        return alphabeta_strategy(board)
 
 # TODO: Test case on which_move which tests that index out of
 #       range no longer occurs when we have no move available
@@ -415,7 +415,7 @@ class Environment():
         stop_time = time.time()
         elapsed = stop_time - self.start_time
         self.times.append(elapsed)
-        logging.debug("took %s seconds", elapsed)
+        return elapsed
             
 env = Environment()
 
@@ -423,16 +423,14 @@ env = Environment()
 # Main Decision Routine
 #
 
-def which_move(board):
+def main_strategy(board):
     "Determine which move to make given the current board state."
     
     # fill in your code here. it must return one of the following directions:
     #   tron.NORTH, tron.EAST, tron.SOUTH, tron.WEST
 
     # record history and other facts about the board for use throughout
-    env.update(board)
 
-    logging.debug('move %d', env.nmoves)
 
     # shortest path between me and my enemy, or none if we're disconnected
     cpath = None
@@ -453,34 +451,36 @@ def which_move(board):
 
     # in some cases we will be asked to move when there is no
     # move available: it doesn't matter, just return NORTH
-    if not adjacent_floor(board, board.me()):
-        my_move = tron.NORTH
+    if cdist > 3 and env.mfm:
+        logging.debug('using cached path')
+        my_move = env.mfm.popleft()
     else:
-        if cdist > 3 and env.mfm:
-            logging.debug('using cached path')
-            my_move = env.mfm.popleft()
-        else:
-            # determine which move I should make
-            logging.debug('using close call')
-            my_move = closecall_decision(board)
+        # determine which move I should make
+        logging.debug('using close call')
+        my_move = closecall_strategy(board)
 
-    logging.debug('chose %s', DIRECTION_NAMES[my_move])
 
-    # record and log the time this move took to compute
-    env.record_time()
-            
     return my_move
 
-# you do not need to modify this part
-if __name__ == "__main__":
-    
-    config, args = argp.parse_args()
+def enable_logging(logfile, level=logging.DEBUG):
+    "Enable logging to the specified logfile."
+    logging.basicConfig(filename=logfile, level=level, filemode='w')
 
+if __name__ == "__main__":
+    config, args = argp.parse_args()
     if config.logfile:
-        logging.basicConfig(filename=config.logfile, level=logging.DEBUG, \
-                                filemode='w')
-        
+        enable_logging(config.logfile)
     logging.debug('config: %s', config)
-    
+    which_move = globals()['%s_strategy' % config.strategy]
     for board in tron.Board.generate():
-        tron.move(which_move(board))
+        env.update(board)
+        logging.debug('move %d', env.nmoves)
+        my_move = tron.NORTH # default if no moves available
+        if adjacent_floor(board, board.me()):
+            my_move = which_move(board)
+        else:
+            logging.debug('no legal moves remaining')
+            logging.debug('bypassing strategy')
+        logging.debug('chose %s', DIRECTION_NAMES[my_move])
+        logging.debug("took %0.3f seconds", env.record_time())
+        tron.move(my_move)
