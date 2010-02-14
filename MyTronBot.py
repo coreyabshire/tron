@@ -111,6 +111,34 @@ def make_state(board, to_move):
     "Encapsulate the board and next player in a state struct for AIMA."
     return utils.Struct(board=board, to_move=to_move)
 
+# TODO: Need to find a reliable way to test this without
+#       putting something in place that I constantly have
+#       to modify. Maybe record some scenarios like I
+#       started before and write the test cases against it.
+
+def evaluate_position(board, player):
+    "Assign a score to this board relative to player."
+    score = 0.0
+    cpath = None
+    p1_pos = board.find(player)
+    p2_pos = board.find(opponent(player))
+    try:
+        cpath = shortest_path(board, p1_pos, p2_pos)
+        cdist = moves_between(cpath)
+    except KeyError:
+        pass
+    if cpath:
+        pass
+    else:
+        p1_room = count_around(board, p1_pos)
+        p2_room = count_around(board, p2_pos)
+        total = p1_room + p2_room
+        if p1_room > p2_room:
+            score = float(p1_room) / float(total)
+        else:
+            score = -1.0 * float(p2_room) / float(total)
+    return score
+        
 class TronGame(games.Game):
     "A representation of Tron compatible with AIMA alpha-beta."
 
@@ -289,7 +317,9 @@ def wall_decision(board):
 
 def alphabeta_decision(board):
     "Find a move based on an alpha-beta search of the game tree."
-    return games.alphabeta_search(make_state(board, tron.ME), game, d=6)
+    state = make_state(board, tron.ME)
+    eval_fn = lambda state: evaluate_position(state.board, state.to_move)
+    return games.alphabeta_search(state, game, d=6, eval_fn=eval_fn)
 
 def closecall_decision(board):
     "Get close to the opponent then solve with alphabeta."
