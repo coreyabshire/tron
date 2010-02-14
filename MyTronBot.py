@@ -10,6 +10,15 @@ import dijkstra
 import tron
 
 #_____________________________________________________________________
+# Constants and Enumerations
+#
+
+DIRECTION_NAMES = { tron.NORTH : 'NORTH',
+                    tron.SOUTH : 'SOUTH',
+                    tron.EAST  : 'EAST',
+                    tron.WEST  : 'WEST' }
+
+#_____________________________________________________________________
 # Configuration
 #
 
@@ -149,7 +158,7 @@ def evaluate_position(board, player):
             score = float(p1_room) / float(total)
         else:
             score = -1.0 * float(p2_room) / float(total)
-    logging.debug('score: %s', score)
+    logging.debug('score %0.2f', score)
     return score
         
 class TronGame(games.Game):
@@ -376,9 +385,13 @@ class Environment():
 
         self.mfm = deque()       # my future moves
         self.ofm = deque()       # my opponents future moves
+
+        self.nmoves = 0          # number of moves seen
     
     def update(self, board):
 
+        self.nmoves += 1
+        
         # record board history for pattern recognition
         self.bh.append(board)
         
@@ -408,6 +421,8 @@ def which_move(board):
     # record history and other facts about the board for use throughout
     env.update(board)
 
+    logging.debug('move %d', env.nmoves)
+
     # shortest path between me and my enemy, or none if we're disconnected
     cpath = None
     cdist = None
@@ -431,14 +446,18 @@ def which_move(board):
         my_move = tron.NORTH
     else:
         if cdist > 3 and env.mfm:
+            logging.debug('using cached path')
             my_move = env.mfm.popleft()
         else:
             # determine which move I should make
+            logging.debug('using close call')
             my_move = closecall_decision(board)
 
+    logging.debug('chose %s', DIRECTION_NAMES[my_move])
+            
     return my_move
 
-# you do not need to modify this part - much :) ...
+# you do not need to modify this part
 if __name__ == "__main__":
     
     config, args = argp.parse_args()
