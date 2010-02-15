@@ -313,6 +313,27 @@ def find_hotspots(board, paths=20, dump=False):
             print
     return heat
 
+def distance_map(board, coords):
+    "Find the distance to all floor tiles from coords."
+    seen = set(coords)
+    q = deque([coords])
+    d = { coords: 0 }
+    while q:
+        p = q.popleft()
+        for a in adjacent(board, p, is_floor):
+            if a not in seen:
+                seen.add(a)
+                q.append(a)
+                d[a] = d[p] + 1
+    return d
+
+def same_distance(board, a, b):
+    "Return all points equidistant from a and b."
+    m = distance_map(board, a)
+    n = distance_map(board, b)
+    keys = set(m.keys()).intersection(set(n.keys()))
+    return [k for k in keys if m[k] == n[k]]
+
 #_____________________________________________________________________
 # Strategy Definition
 #
