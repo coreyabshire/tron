@@ -288,7 +288,7 @@ def find_walls(board):
     return walls
 
 # TODO: find a way to test this (its non-deterministic)
-def find_hotspots(board, paths=20, dump=False):
+def heat_map(board, paths=20, dump=False):
     "Identify hotspots by counting coordinate hits on random paths."
     points = [p for p in points_around(board, board.me())]
     heat = {}
@@ -413,10 +413,10 @@ def heatseaker_strategy(board):
     "Use hotspots to identify and find targets."
     try:
         me = board.me()
-        hotspots = find_hotspots(board)
-        hottest = hotspots.keys()
-        hottest.sort(key=lambda k: hotspots[k], reverse=True)
-        target = hottest[0]
+        heat = heat_map(board)
+        hotspots = heat.keys()
+        hotspots.sort(key=lambda k: heat[k], reverse=True)
+        target = hotspots[0]
         path = shortest_path(board, me, target)
         next_step = path[1]
         move = move_made(board, me, next_step)
