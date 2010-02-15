@@ -18,12 +18,12 @@ def rgb((r, g, b)):
 def gradient2(c1, c2, n):
     r1,g1,b1 = c1
     r2,g2,b2 = c2
-    rd,gd,bd = r2-r1, g2-g1, b2-b1
+    rd,gd,bd = float(r2-r1), float(g2-g1), float(b2-b1)
     ra,ga,ba = rd/n, gd/n, bd/n
     r, g, b = r1, g1, b1
     colors = []
     for i in range(n):
-        colors.append(rgb((r, g, b)))
+        colors.append(rgb((int(r), int(g), int(b))))
         r, g, b = r + ra, g + ga, b + ba
     return colors
 
