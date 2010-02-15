@@ -288,7 +288,7 @@ def find_walls(board):
     return walls
 
 # TODO: find a way to test this (its non-deterministic)
-def find_hotspots(board, paths=20):
+def find_hotspots(board, paths=20, dump=False):
     "Identify hotspots by counting coordinate hits on random paths."
     points = [p for p in points_around(board, board.me())]
     heat = {}
@@ -303,14 +303,15 @@ def find_hotspots(board, paths=20):
             heat[v] += 1
             if heat[v] > max_heat:
                 max_heat = heat[v]
-    for y in xrange(board.height):
-        for x in xrange(board.width):
-            if (y,x) in heat:
-                print int((float(heat[y,x]) / max_heat) * 9.0),
-            else:
-                print board[y,x],
-        print
-    return max_heat
+    if dump:
+        for y in xrange(board.height):
+            for x in xrange(board.width):
+                if (y,x) in heat:
+                    print int((float(heat[y,x]) / max_heat) * 9.0),
+                else:
+                    print board[y,x],
+            print
+    return heat
 
 #_____________________________________________________________________
 # Strategy Definition
@@ -386,6 +387,21 @@ def alphabeta_strategy(board):
     return games.alphabeta_search(state, game, \
                                       cutoff_test=alphabeta_cutoff, \
                                       eval_fn=eval_fn)
+
+def heatseaker_strategy(board):
+    "Use hotspots to identify and find targets."
+    try:
+        me = board.me()
+        hotspots = find_hotspots(board)
+        hottest = hotspots.keys()
+        hottest.sort(key=lambda k: hotspots[k], reverse=True)
+        target = hottest[0]
+        path = shortest_path(board, me, target)
+        next_step = path[1]
+        move = move_made(board, me, next_step)
+        return move
+    except KeyError:
+        return alphabeta_strategy(board)
 
 def closecall_strategy(board):
     "Get close to the opponent then solve with alphabeta."
