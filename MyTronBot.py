@@ -48,6 +48,37 @@ def adjacent_floor(board, origin):
     "Return the positions around origin that are floor spaces (open)."
     return [c for c in board.adjacent(origin) if board[c] == tron.FLOOR]
 
+def valid_coords(board, (y,x)):
+    "Are the coordinates within the board dimensions?"
+    return 0 <= y < board.height and 0 <= x < board.width
+
+def tile_is_a(kind_of):
+    "Return a tile matcher that checks if the tile at coords is kind_of."
+    def fn(board, coords):
+        if valid_coords(board, coords):
+            return board[coords] == kind_of
+    return fn
+
+def invert(fn):
+    return lambda *args: not fn(*args)
+
+is_wall = tile_is_a(tron.WALL)
+is_floor = tile_is_a(tron.FLOOR)
+is_nonwall = invert(tile_is_a(tron.WALL))
+
+def tiles_matching(board, fn):
+    "Collect all tiles on the board matching fn."
+    tiles = []
+    for y in xrange(board.height):
+        for x in xrange(board.width):
+            if fn(board, (y,x)):
+                tiles.append((y,x))
+    return tiles
+
+def adjacent(board, coords, fn):
+    "Find all tiles on board adjacent to coords matching fn."
+    return [a for a in board.adjacent(coords) if fn(board, a)]
+
 def surrounding_offset_array():
     z = [-1, 0, 1]
     return [(s,t) for t in z for s in z]
@@ -109,7 +140,7 @@ def opponent(player):
     else:
         return tron.ME
 
-def count_around(board, coords, around=adjacent_floor):
+def points_around(board, coords, around=adjacent_floor):
     "Flood fill to count all the open spaces around coords."
     # http://mail.python.org/pipermail/image-sig/2005-September/003559.html
     count = 0
@@ -124,7 +155,10 @@ def count_around(board, coords, around=adjacent_floor):
                     seen.add(adj)
                     newedge.append(adj)
         edge = newedge
-    return count
+    return seen
+
+def count_around(board, coords, around=adjacent_floor):
+    return len(points_around(board, coords, around))
 
 #_____________________________________________________________________
 # AIMA Alpha-Beta Search Interface
@@ -214,15 +248,16 @@ class DijkstraNeighbors():
 class DijkstraGraph():
     "Adapter for Dijkstra algorithm implementation. Graph of tiles."
 
-    def __init__(self, board):
+    def __init__(self, board, test):
         self.board = board
+        self.test = test
 
     def __getitem__(self, coords):
-        return DijkstraNeighbors(adjacent_nonwall(self.board, coords))
+        return DijkstraNeighbors(adjacent(self.board, coords, self.test))
 
-def shortest_path(board, start, end):
+def shortest_path(board, start, end, test=is_nonwall):
     "Return the shortest path between two points on the board."
-    return dijkstra.shortestPath(DijkstraGraph(board), start, end)
+    return dijkstra.shortestPath(DijkstraGraph(board, test), start, end)
 
 def moves_between(path):
     "Number of moves it would take for two players to traverse the path."
@@ -232,33 +267,7 @@ def moves_between(path):
 # Environment Recognition
 #
 
-def valid_coords(board, (y,x)):
-    "Are the coordinates within the board dimensions?"
-    return 0 <= y < board.height and 0 <= x < board.width
-
-def tile_is_a(kind_of):
-    "Return a tile matcher that checks if the tile at coords is kind_of."
-    def fn(board, coords):
-        if valid_coords(board, coords):
-            return board[coords] == kind_of
-    return fn
-
-is_wall = tile_is_a(tron.WALL)
-is_floor = tile_is_a(tron.FLOOR)
-
-def tiles_matching(board, fn):
-    "Collect all tiles on the board matching fn."
-    tiles = []
-    for y in xrange(board.height):
-        for x in xrange(board.width):
-            if fn(board, (y,x)):
-                tiles.append((y,x))
-    return tiles
-
-def adjacent(board, coords, fn):
-    "Find all tiles on board adjacent to coords matching fn."
-    return [a for a in board.adjacent(coords) if fn(board, a)]
-
+# TODO: add a test for this
 def find_walls(board):
     "Find all the walls (contingous series of wall tiles)."
     wall_tiles_remaining = set(tiles_matching(board, is_wall))
@@ -277,6 +286,31 @@ def find_walls(board):
                         wall_tiles_remaining.remove(x)
         walls.append(wall)
     return walls
+
+# TODO: find a way to test this (its non-deterministic)
+def find_hotspots(board, paths=20):
+    "Identify hotspots by counting coordinate hits on random paths."
+    points = [p for p in points_around(board, board.me())]
+    heat = {}
+    max_heat = 0
+    for v in points:
+        heat[v] = 0
+    for i in range(paths):
+        a = random.choice(points)
+        b = random.choice(points)
+        p = shortest_path(board, a, b, is_floor)
+        for v in p:
+            heat[v] += 1
+            if heat[v] > max_heat:
+                max_heat = heat[v]
+    for y in xrange(board.height):
+        for x in xrange(board.width):
+            if (y,x) in heat:
+                print int((float(heat[y,x]) / max_heat) * 9.0),
+            else:
+                print board[y,x],
+        print
+    return max_heat
 
 #_____________________________________________________________________
 # Strategy Definition
@@ -400,7 +434,7 @@ class Environment():
 
         self.start_time = 0      # start time for this move
         self.times = []          # time taken for each move
-    
+
     def update(self, board):
 
         self.nmoves += 1

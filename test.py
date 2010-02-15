@@ -59,8 +59,8 @@ class BoardHelperTestCase(unittest.TestCase):
         
     def test_win_lose_or_draw(self):
         board = MyTronBot.read_board('maps/test-board.txt')
-        self.assertEqual(MyTronBot.win_lose_or_draw(board, tron.ME), 0)
-        self.assertEqual(MyTronBot.win_lose_or_draw(board, tron.THEM), 0)
+        self.assertEqual(MyTronBot.win_lose_or_draw(board, tron.ME), -0.5)
+        self.assertEqual(MyTronBot.win_lose_or_draw(board, tron.THEM), -0.5)
         board.board[2] = '######'
         self.assertEqual(MyTronBot.win_lose_or_draw(board, tron.ME), -1)
         self.assertEqual(MyTronBot.win_lose_or_draw(board, tron.THEM), 1)
@@ -124,8 +124,8 @@ class AlphaBetaTestCase(unittest.TestCase):
 
     def test_utility(self):
         next = self.state
-        self.assertEquals(self.game.utility(next, tron.ME), 0)
-        self.assertEquals(self.game.utility(next, tron.THEM), 0)
+        self.assertEquals(self.game.utility(next, tron.ME), -0.5)
+        self.assertEquals(self.game.utility(next, tron.THEM), -0.5)
         board = next.board
         board.board[2] = '######'
         self.assertEquals(self.game.utility(next, tron.ME), -1)
