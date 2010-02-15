@@ -1,9 +1,48 @@
-import os, sys, tron
+import os, sys, tron, MyTronBot
 from Tkinter import *
+
+colors = { "#": "gray",
+           "1": "red",
+           "2": "blue",
+           " ": "white" }
+
+heat_colors = ((255, 255, 255), (255, 255, 0), (255, 128, 0), (255, 0, 0))
 
 class EndOfGame():
     def __init__(self, result):
         self.result = result
+
+def rgb((r, g, b)):
+    return "#%02x%02x%02x" % (r, g, b)
+
+def gradient2(c1, c2, n):
+    r1,g1,b1 = c1
+    r2,g2,b2 = c2
+    rd,gd,bd = r2-r1, g2-g1, b2-b1
+    ra,ga,ba = rd/n, gd/n, bd/n
+    r, g, b = r1, g1, b1
+    colors = []
+    for i in range(n):
+        colors.append(rgb((r, g, b)))
+        r, g, b = r + ra, g + ga, b + ba
+    return colors
+
+def gradient(base, total):
+    spreads = len(base) - 1
+    colors = ['#000000' for i in range(total)]
+    perset = total / spreads
+    extra = total % spreads
+    sets = [perset for i in range(spreads)]
+    for i in range(extra):
+        sets[i] += 1
+    j = 0
+    for i in range(spreads):
+        for c in gradient2(base[i], base[i+1], sets[i]):
+            colors[j] = c
+            j += 1
+    colors[0] = rgb(base[0])
+    colors[len(colors)-1] = rgb(base[len(base)-1])
+    return colors
 
 class Grid():
 
@@ -14,6 +53,7 @@ class Grid():
         h, w, z = height, width, cellsize
         self.height = height
         self.width = width
+        self.cellsize = cellsize
         self.canvas = Canvas(parent, width=w*z, height=h*z)
         self.cells = {}
         for y in range(h):
@@ -28,21 +68,76 @@ class Grid():
 
 class TronGrid(Grid):
 
-    def __init__(self, parent, board, cellsize, colors):
+    def __init__(self, parent, board, cellsize=15, colors=colors):
         Grid.__init__(self, parent, board.height, board.width, \
                           cellsize, colors[' '])
         self.colors = colors
+        self.me = board.me()
+        self.them = board.them()
+        self.centers = {}
         self.draw(board)
-        
+        self.last_me_line = None
+        self.last_them_line = None
+
     def draw(self, board):
+        z = self.cellsize
         for y in range(board.height):
             for x in range(board.width):
                 self[y,x] = self.colors[board[y,x]]
+                self.centers[y,x] = y * z + (z / 2), x * z + z / 2
 
     def update(self, board):
+        if self.last_me_line:
+            self.canvas.itemconfigure(self.last_me_line, arrow='none')
+        y1,x1 = self.centers[self.me]
+        y2,x2 = self.centers[board.me()]
+        self.last_me_line = self.canvas.create_line(x1, y1, x2, y2, \
+                                                        arrow='last', \
+                                                        fill='white')
         self[board.me()] = self.colors[tron.ME]
+        if self.last_them_line:
+            self.canvas.itemconfigure(self.last_them_line, arrow='none')
+        y1,x1 = self.centers[self.them]
+        y2,x2 = self.centers[board.them()]
+        self.last_them_line = self.canvas.create_line(x1, y1, x2, y2, \
+                                                          arrow='last',\
+                                                          fill='white')
         self[board.them()] = self.colors[tron.THEM]
+        self.me = board.me()
+        self.them = board.them()
 
+def show_board(board, squaresize=15):
+    root = Tk()
+    root.bind("<Escape>", lambda e: root.destroy())
+    grid = TronGrid(root, board, squaresize, colors)
+    grid.draw(board)
+    grid.pack()
+    mainloop()
+
+def show_path(board, path):
+    root = Tk()
+    root.bind("<Escape>", lambda e: root.destroy())
+    grid = TronGrid(root, board, 15, colors)
+    grid.draw(board)
+    for p in path:
+        if board[p] == tron.FLOOR:
+            grid[p] = "yellow"
+    grid.pack()
+    mainloop()
+
+def show_heat(board, heat):
+    max_heat = max(heat.values())
+    grad = gradient(heat_colors, max_heat + 1)
+    root = Tk()
+    root.bind("<Escape>", lambda e: root.destroy())
+    grid = TronGrid(root, board, 15, colors)
+    grid.draw(board)
+    for p in heat.keys():
+        if board[p] == tron.FLOOR:
+            grid[p] = grad[heat[p]]
+    grid.pack()
+    mainloop()
+    
 def read_board(stream=sys.stdin):
     line1 = stream.readline().strip()
     try:
@@ -51,23 +146,3 @@ def read_board(stream=sys.stdin):
         return tron.Board(width, height, lines)
     except ValueError:
         raise EndOfGame(line1)
-    
-def update():
-    try:
-        grid.update(read_board())
-        root.after(delay_ms, update)
-    except EndOfGame as end:
-        print end.result
-    
-delay_ms = len(sys.argv) > 1 and int(float(sys.argv[1]) * 1000) or 100
-squaresize = len(sys.argv) > 2 and int(sys.argv[2]) or 15
-
-root = Tk()
-root.bind("<Escape>", lambda e: quit())
-board = read_board()
-colors = { "#": "gray", "1": "red", "2": "blue", " ": "white" }
-grid = TronGrid(root, board, squaresize, colors)
-grid.draw(board)
-grid.pack()
-root.after(delay_ms, update)
-mainloop()
