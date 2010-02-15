@@ -26,10 +26,22 @@ class Grid():
     def pack(self):
         self.canvas.pack()
 
-def draw(grid, board, colors):
-    for y in range(board.height):
-        for x in range(board.width):
-            grid[y,x] = colors[board[y,x]]
+class TronGrid(Grid):
+
+    def __init__(self, parent, board, cellsize, colors):
+        Grid.__init__(self, parent, board.height, board.width, \
+                          cellsize, colors[' '])
+        self.colors = colors
+        self.draw(board)
+        
+    def draw(self, board):
+        for y in range(board.height):
+            for x in range(board.width):
+                self[y,x] = self.colors[board[y,x]]
+
+    def update(self, board):
+        self[board.me()] = self.colors[tron.ME]
+        self[board.them()] = self.colors[tron.THEM]
 
 def read_board(stream=sys.stdin):
     line1 = stream.readline().strip()
@@ -42,7 +54,7 @@ def read_board(stream=sys.stdin):
     
 def update():
     try:
-        draw(grid, read_board(), colors)
+        grid.update(read_board())
         root.after(delay_ms, update)
     except EndOfGame as end:
         print end.result
@@ -53,9 +65,9 @@ squaresize = len(sys.argv) > 2 and int(sys.argv[2]) or 15
 root = Tk()
 root.bind("<Escape>", lambda e: quit())
 board = read_board()
-grid = Grid(root, board.height, board.width, squaresize, "white")
 colors = { "#": "gray", "1": "red", "2": "blue", " ": "white" }
-draw(grid, board, colors)
+grid = TronGrid(root, board, squaresize, colors)
+grid.draw(board)
 grid.pack()
 root.after(delay_ms, update)
 mainloop()
