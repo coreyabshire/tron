@@ -92,6 +92,8 @@ class TronGrid(Grid):
         return self.canvas.create_line(x1, y1, x2, y2, arrow=arrow, fill=fill)
 
     def draw_lines(self, board, path, fill='black'):
+        if len(path) < 2:
+            return
         for i in xrange(len(path)-2):
             self.draw_line(path[i], path[i+1], 'none', fill)
         self.draw_line(path[-2], path[-1], 'last', fill)
