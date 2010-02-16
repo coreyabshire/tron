@@ -141,7 +141,7 @@ def opponent(player):
         return tron.ME
 
 def points_around(board, coords, around=adjacent_floor):
-    "Flood fill to count all the open spaces around coords."
+    "All the open spaces around coords."
     # http://mail.python.org/pipermail/image-sig/2005-September/003559.html
     count = 0
     edge = [coords]
@@ -158,6 +158,7 @@ def points_around(board, coords, around=adjacent_floor):
     return seen
 
 def count_around(board, coords, around=adjacent_floor):
+    "Count of all spaces around coords."
     return len(points_around(board, coords, around))
 
 #_____________________________________________________________________
