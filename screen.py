@@ -86,25 +86,29 @@ class TronGrid(Grid):
                 self[y,x] = self.colors[board[y,x]]
                 self.centers[y,x] = y * z + (z / 2), x * z + z / 2
 
+    def draw_line(self, a, b, arrow='none', fill='black'):
+        y1,x1 = self.centers[a]
+        y2,x2 = self.centers[b]
+        return self.canvas.create_line(x1, y1, x2, y2, arrow=arrow, fill=fill)
+
+    def draw_lines(self, board, path, fill='black'):
+        for i in xrange(len(path)-2):
+            self.draw_line(path[i], path[i+1], 'none', fill)
+        self.draw_line(path[-2], path[-1], 'last', fill)
+    
     def update(self, board):
         if self.last_me_line:
             self.canvas.itemconfigure(self.last_me_line, arrow='none')
-        y1,x1 = self.centers[self.me]
-        y2,x2 = self.centers[board.me()]
-        self.last_me_line = self.canvas.create_line(x1, y1, x2, y2, \
-                                                        arrow='last', \
-                                                        fill='white')
+        me = board.me()
+        self.last_me_line = self.draw_line(self.me, me, 'last', 'white')
         self[board.me()] = self.colors[tron.ME]
         if self.last_them_line:
             self.canvas.itemconfigure(self.last_them_line, arrow='none')
-        y1,x1 = self.centers[self.them]
-        y2,x2 = self.centers[board.them()]
-        self.last_them_line = self.canvas.create_line(x1, y1, x2, y2, \
-                                                          arrow='last',\
-                                                          fill='white')
+        them = board.them()
+        self.last_them_line = self.draw_line(self.them, them, 'last', 'white')
         self[board.them()] = self.colors[tron.THEM]
-        self.me = board.me()
-        self.them = board.them()
+        self.me = me
+        self.them = them
 
 def show_board(board, squaresize=15):
     root = Tk()
@@ -114,14 +118,16 @@ def show_board(board, squaresize=15):
     grid.pack()
     mainloop()
 
-def show_path(board, path):
+def show_path(board, path, fill='yellow', line_color='black'):
     root = Tk()
     root.bind("<Escape>", lambda e: root.destroy())
     grid = TronGrid(root, board, 15, colors)
     grid.draw(board)
     for p in path:
         if board[p] == tron.FLOOR:
-            grid[p] = "yellow"
+            grid[p] = fill
+    if line_color:
+        grid.draw_lines(board, path)
     grid.pack()
     mainloop()
 
