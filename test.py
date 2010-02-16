@@ -27,6 +27,76 @@ class BoardHelperTestCase(unittest.TestCase):
         self.assertEqual(MyTronBot.adjacent_floor(board, board.me()), [(2,1)])
         self.assertEqual(MyTronBot.adjacent_floor(board, board.them()), [(1,3)])
 
+    def test_valid_coords(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        self.assertTrue(MyTronBot.valid_coords(board, (0,0)))
+        self.assertTrue(MyTronBot.valid_coords(board, (0,5)))
+        self.assertTrue(MyTronBot.valid_coords(board, (2,2)))
+        self.assertTrue(MyTronBot.valid_coords(board, (3,0)))
+        self.assertTrue(MyTronBot.valid_coords(board, (3,5)))
+        self.assertFalse(MyTronBot.valid_coords(board, (-1,-1)))
+        self.assertFalse(MyTronBot.valid_coords(board, (-1,0)))
+        self.assertFalse(MyTronBot.valid_coords(board, (0,-1)))
+        self.assertFalse(MyTronBot.valid_coords(board, (0,6)))
+        self.assertFalse(MyTronBot.valid_coords(board, (6,6)))
+        self.assertFalse(MyTronBot.valid_coords(board, (4,0)))
+
+    def test_tile_is_a(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        is_wall = MyTronBot.tile_is_a(tron.WALL)
+        is_floor = MyTronBot.tile_is_a(tron.FLOOR)
+        known_wall = [(0,0),(0,5),(3,0),(3,5)]
+        known_floor = [(2,1),(2,2),(2,3),(1,3)]
+        for coords in known_wall:
+            self.assertTrue(is_wall(board, coords))
+            self.assertFalse(is_floor(board, coords))
+        for coords in known_floor:
+            self.assertFalse(is_wall(board, coords))
+            self.assertTrue(is_floor(board, coords))
+    
+    def test_invert(self):
+        true_fn = lambda: True
+        false_fn = lambda: False
+        inverse_true_fn = MyTronBot.invert(true_fn)
+        inverse_false_fn = MyTronBot.invert(false_fn)
+        self.assertTrue(true_fn())
+        self.assertFalse(false_fn())
+        self.assertFalse(inverse_true_fn())
+        self.assertTrue(inverse_false_fn())
+
+    def test_is_wall(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        self.assertTrue(MyTronBot.is_wall(board, (0,0)))
+        self.assertFalse(MyTronBot.is_wall(board, (1,1)))
+        self.assertFalse(MyTronBot.is_wall(board, (2,1)))
+
+    def test_is_floor(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        self.assertFalse(MyTronBot.is_floor(board, (0,0)))
+        self.assertFalse(MyTronBot.is_floor(board, (1,1)))
+        self.assertTrue(MyTronBot.is_floor(board, (2,1)))
+
+    def test_is_nonwall(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        self.assertFalse(MyTronBot.is_nonwall(board, (0,0)))
+        self.assertTrue(MyTronBot.is_nonwall(board, (1,1)))
+        self.assertTrue(MyTronBot.is_nonwall(board, (2,1)))
+
+    def test_tiles_matching(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        wall  = MyTronBot.tiles_matching(board, MyTronBot.is_wall)
+        floor = MyTronBot.tiles_matching(board, MyTronBot.is_floor)
+        self.assertEquals(len(wall ), 18)
+        self.assertEquals(len(floor), 4)
+        
+    def test_adjacent(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        coords = board.me()
+        wall = MyTronBot.adjacent(board, coords, MyTronBot.is_wall)
+        floor = MyTronBot.adjacent(board, coords, MyTronBot.is_floor)
+        self.assertEquals(len(wall), 3)
+        self.assertEquals(len(floor), 1)
+
     def test_surrounding_offset_array(self):
         soa = MyTronBot.surrounding_offset_array()
         self.assertEqual(len(soa), 9)
@@ -163,54 +233,46 @@ class ShortestPathTestCase(unittest.TestCase):
 
 class EnvironmentRecognitionTestCase(unittest.TestCase):
 
-    def test_valid_coords(self):
-        board = MyTronBot.read_board('maps/test-board.txt')
-        self.assertTrue(MyTronBot.valid_coords(board, (0,0)))
-        self.assertTrue(MyTronBot.valid_coords(board, (0,5)))
-        self.assertTrue(MyTronBot.valid_coords(board, (2,2)))
-        self.assertTrue(MyTronBot.valid_coords(board, (3,0)))
-        self.assertTrue(MyTronBot.valid_coords(board, (3,5)))
-        self.assertFalse(MyTronBot.valid_coords(board, (-1,-1)))
-        self.assertFalse(MyTronBot.valid_coords(board, (-1,0)))
-        self.assertFalse(MyTronBot.valid_coords(board, (0,-1)))
-        self.assertFalse(MyTronBot.valid_coords(board, (0,6)))
-        self.assertFalse(MyTronBot.valid_coords(board, (6,6)))
-        self.assertFalse(MyTronBot.valid_coords(board, (4,0)))
-
-    def test_tile_is_a(self):
-        board = MyTronBot.read_board('maps/test-board.txt')
-        is_wall = MyTronBot.tile_is_a(tron.WALL)
-        is_floor = MyTronBot.tile_is_a(tron.FLOOR)
-        known_wall = [(0,0),(0,5),(3,0),(3,5)]
-        known_floor = [(2,1),(2,2),(2,3),(1,3)]
-        for coords in known_wall:
-            self.assertTrue(is_wall(board, coords))
-            self.assertFalse(is_floor(board, coords))
-        for coords in known_floor:
-            self.assertFalse(is_wall(board, coords))
-            self.assertTrue(is_floor(board, coords))
-    
-    def test_tiles_matching(self):
-        board = MyTronBot.read_board('maps/test-board.txt')
-        wall  = MyTronBot.tiles_matching(board, MyTronBot.is_wall)
-        floor = MyTronBot.tiles_matching(board, MyTronBot.is_floor)
-        self.assertEquals(len(wall ), 18)
-        self.assertEquals(len(floor), 4)
-        
-    def test_adjacent(self):
-        board = MyTronBot.read_board('maps/test-board.txt')
-        coords = board.me()
-        wall = MyTronBot.adjacent(board, coords, MyTronBot.is_wall)
-        floor = MyTronBot.adjacent(board, coords, MyTronBot.is_floor)
-        self.assertEquals(len(wall), 3)
-        self.assertEquals(len(floor), 1)
-
     def test_find_walls(self):
         board = MyTronBot.read_board('maps/test-board.txt')
         walls = MyTronBot.find_walls(board)
         self.assertEquals(len(walls), 1)
         self.assertEquals(len(walls[0]), 18)
-        
+
+    def test_distance_map(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        dmap = MyTronBot.distance_map(board, board.me())
+        self.assertEquals(dmap[(2,1)], 1)
+        self.assertEquals(dmap[(2,2)], 2)
+        self.assertEquals(dmap[(2,3)], 3)
+
+        board = MyTronBot.read_board('maps/quadrant.txt')
+        dmap = MyTronBot.distance_map(board, board.me())
+        self.assertEquals(dmap[(3,4)], 1)
+        self.assertEquals(dmap[(4,3)], 1)
+        self.assertEquals(dmap[(9,5)], 8)
+        self.assertEquals(dmap[(13,13)], 20)
+    
+    def test_same_distance(self):
+        board = MyTronBot.read_board('maps/test-board.txt')
+        points = MyTronBot.same_distance(board, board.me(), board.them())
+        self.assertEquals(points, [])
+
+        board = MyTronBot.read_board('maps/u.txt')
+        points = set(MyTronBot.same_distance(board, board.me(), board.them()))
+        self.assertEquals(points, set([(7,1),(7,2),(7,3)]))
+
+        board = MyTronBot.read_board('maps/twin-rooms.txt')
+        points = set(MyTronBot.same_distance(board, board.me(), board.them()))
+        self.assertEquals(points, set([(12,11),(12,12),(12,13)]))
+
+        board = MyTronBot.read_board('maps/huge-room.txt')
+        points = MyTronBot.same_distance(board, board.me(), board.them())
+        self.assertTrue((48,1) in points)
+        self.assertTrue((1,48) in points)
+        self.assertTrue((24,25) in points)
+        self.assertTrue((25,24) in points)
+
 #_____________________________________________________________________
 # Run tests if script.
 #
