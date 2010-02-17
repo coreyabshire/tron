@@ -174,13 +174,13 @@ def make_state(board, to_move):
 #       to modify. Maybe record some scenarios like I
 #       started before and write the test cases against it.
 
-def alphabeta_cutoff(state, depth):
+def ab_cutoff(state, depth):
     if depth > config.depth or game.terminal_test(state) or env.need_to_hurry():
         return True
     else:
         return False
 
-def evaluate_position(board, player):
+def ab_eval(board, player):
     "Assign a score to this board relative to player."
     score = 0.0
     cpath = None
@@ -197,10 +197,10 @@ def evaluate_position(board, player):
         p1_room = count_around(board, p1_pos)
         p2_room = count_around(board, p2_pos)
         total = p1_room + p2_room
-        if p1_room > p2_room:
-            score = float(p1_room) / float(total)
-        else:
-            score = -1.0 * float(p2_room) / float(total)
+        if total == 0.0:
+            return 0.0
+        else: 
+            return float(p1_room) / float(total) * 2.0 - 1.0
     logging.debug('score %0.2f', score)
     return score
         
@@ -405,10 +405,15 @@ def wall_strategy(board):
 def alphabeta_strategy(board):
     "Find a move based on an alpha-beta search of the game tree."
     state = make_state(board, tron.ME)
-    eval_fn = lambda state: evaluate_position(state.board, state.to_move)
-    return games.alphabeta_search(state, game, \
-                                      cutoff_test=alphabeta_cutoff, \
-                                      eval_fn=eval_fn)
+    stats = utils.Struct(nodes=0, max_depth=0)
+    def cutoff(state, depth):
+        stats.nodes += 1
+        stats.max_depth = max(stats.max_depth, depth)
+        return ab_cutoff(state, depth)
+    eval_fn = lambda state: ab_eval(state.board, state.to_move)
+    d = games.alphabeta_search(state, game, cutoff_test=cutoff, eval_fn=eval_fn)
+    logging.debug('alphabeta %s (%s)', d, stats)
+    return d
 
 def heatseaker_strategy(board):
     "Use hotspots to identify and find targets."
@@ -455,8 +460,10 @@ def closecall_strategy(board):
 class Environment():
     "Simple container for agent data."
 
-    def __init__(self):
-        
+    def __init__(self, timed=True):
+        self.reset(timed)
+
+    def reset(self, timed=True):
         self.first_move = True   # is this our first move or not?
         self.walls = []          # a list of the walls on this board
         self.bh = []             # history of all boards received
@@ -472,7 +479,9 @@ class Environment():
 
         self.start_time = 0      # start time for this move
         self.times = []          # time taken for each move
-
+        self.timed = timed
+        self.time_limit = 3.0    # initial time limit
+        
     def update(self, board):
 
         self.nmoves += 1
@@ -484,11 +493,10 @@ class Environment():
         self.mph.append(board.me())
         self.eph.append(board.them())
 
-        # capture initial about the board on the first move
+        # capture initial info about the board on the first move
         if self.first_move == True:
             self.walls = find_walls(board)
             self.first_move = False
-            self.time_limit = 3.0
         else:
             self.mmh.append(move_made(board, self.mph[-2], self.mph[-1]))
             self.emh.append(move_made(board, self.eph[-2], self.eph[-1]))
@@ -506,7 +514,7 @@ class Environment():
         return self.time_limit - self.elapsed()
 
     def need_to_hurry(self):
-        return self.time_remaining() < config.hurry
+        return self.timed and self.time_remaining() < config.hurry
             
 env = Environment()
 
@@ -575,3 +583,5 @@ if __name__ == "__main__":
         logging.debug('chose %s', DIRECTION_NAMES[my_move])
         logging.debug("took %0.3f seconds", env.record_time())
         tron.move(my_move)
+else:
+    config, args = argp.parse_args()

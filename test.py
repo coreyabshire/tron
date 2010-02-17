@@ -207,7 +207,47 @@ class AlphaBetaTestCase(unittest.TestCase):
         board = next.board
         board.board[2] = '######'
         self.assertTrue(self.game.terminal_test(next))
+
+    def test_ab_eval(self):
+        # very simple open board; should tie
+        board = MyTronBot.read_board('maps/test-board.txt')
+        self.assertEquals(MyTronBot.ab_eval(board, tron.ME), 0.0)
+        self.assertEquals(MyTronBot.ab_eval(board, tron.THEM), 0.0)
+
+        # very simple closed board; should also tie
+        board.board[2] = '# ####'
+        self.assertEquals(MyTronBot.ab_eval(board, tron.ME), 0.0)
+        self.assertEquals(MyTronBot.ab_eval(board, tron.THEM), 0.0)
+
+        # advantage me
+        board.board[2] = '#  ###'
+        a = 1.0 / 3.0
+        self.assertAlmostEqual(MyTronBot.ab_eval(board, tron.ME), a)
+        self.assertAlmostEqual(MyTronBot.ab_eval(board, tron.THEM), -a)
+
+        # advantage them
+        board.board[2] = '# # ##'
+        a = 1.0 / 3.0
+        self.assertAlmostEqual(MyTronBot.ab_eval(board, tron.ME), -a)
+        self.assertAlmostEqual(MyTronBot.ab_eval(board, tron.THEM), a)
+
+        # I'm stuck
+        board.board[2] = '######'
+        self.assertEquals(MyTronBot.ab_eval(board, tron.ME), -1.0)
+        self.assertEquals(MyTronBot.ab_eval(board, tron.THEM), 1.0)
         
+        # they're stuck
+        board.board[1] = '#1##2#'
+        board.board[2] = '#   ##'
+        self.assertEquals(MyTronBot.ab_eval(board, tron.ME), 1.0)
+        self.assertEquals(MyTronBot.ab_eval(board, tron.THEM), -1.0)
+
+        # both stuck - make sure doesn't divide by zero!
+        board.board[1] = '#1##2#'
+        board.board[2] = '######'
+        self.assertEquals(MyTronBot.ab_eval(board, tron.ME), 0.0)
+        self.assertEquals(MyTronBot.ab_eval(board, tron.THEM), 0.0)
+
 #_____________________________________________________________________
 # Shortest Path Tests
 #
