@@ -180,8 +180,9 @@ def ab_cutoff(state, depth):
     else:
         return False
 
-def ab_eval(board, player):
+def ab_eval(state):
     "Assign a score to this board relative to player."
+    board, player = state.board, state.to_move
     score = 0.0
     cpath = None
     p1_pos = board.find(player)
@@ -410,8 +411,7 @@ def alphabeta_strategy(board):
         stats.nodes += 1
         stats.max_depth = max(stats.max_depth, depth)
         return ab_cutoff(state, depth)
-    eval_fn = lambda state: ab_eval(state.board, state.to_move)
-    d = games.alphabeta_search(state, game, cutoff_test=cutoff, eval_fn=eval_fn)
+    d = games.alphabeta_search(state, game, cutoff_test=cutoff, eval_fn=ab_eval)
     logging.debug('alphabeta %s (%s)', d, stats)
     return d
 
