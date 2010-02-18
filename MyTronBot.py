@@ -110,23 +110,23 @@ def print_board(board):
     print '\n'.join(board.board)
 
 def win_lose_or_draw(board, player):
-    "Did player on board is a win (1), lose (-1), or draw (0)."
+    "Did player on board is a win (1), lose (-1), or draw (0.0)."
     try:
         me = board.me()
         them = board.them()
     except KeyError:
-        return 0.0 # one player disappears if they crash into each other
+        return -0.5 # one player disappears if they crash into each other
     me_stuck = not adjacent_floor(board, me)
     them_stuck = not adjacent_floor(board, them)
     if me_stuck and them_stuck:
-        return 0.0
+        return -0.5
     elif me_stuck or them_stuck:
         if player == tron.ME:
             return me_stuck and -1 or 1
         else:
             return me_stuck and 1 or -1
     else:
-        return 0.0
+        return -0.5
 
 def set_char(s, i, c):
     "Return a copy of s with the character at index i replaced with c."

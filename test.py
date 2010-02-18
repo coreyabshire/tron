@@ -113,9 +113,9 @@ class BoardHelperTestCase(unittest.TestCase):
         board = MyTronBot.read_board('maps/test-board.txt')
         self.assertEquals(len(MyTronBot.surrounding_nonfloor(board,(1,2))),5)
 
-    def move_made(self):
+    def test_move_made(self):
         board = MyTronBot.read_board('maps/test-board.txt')
-        fn = lambda(a,b): MyTronBot.move_made(board, a, b)
+        fn = lambda a,b: MyTronBot.move_made(board, a, b)
         self.assertEquals(fn((1,1),(2,1)), tron.SOUTH)
         self.assertEquals(fn((2,1),(1,1)), tron.NORTH)
         self.assertEquals(fn((1,1),(1,2)), tron.EAST)
@@ -186,7 +186,7 @@ class AlphaBetaTestCase(unittest.TestCase):
         self.assertEquals(next.board.me(), (1,1))
         self.assertEquals(next.board.them(), (1,4))
         next = self.game.make_move(tron.SOUTH, next)
-        self.assertEquals(next.board.me(), (2,1))
+        self.assertEquals(next.board.me(), (1,1))
         self.assertEquals(next.board.them(), (1,4))
         next = self.game.make_move(tron.WEST, next)
         self.assertEquals(next.board.me(), (2,1))
