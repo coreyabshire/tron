@@ -174,7 +174,7 @@ class AlphaBetaTestCase(unittest.TestCase):
     def setUp(self):
         board = MyTronBot.read_board('maps/test-board.txt')
         self.game = MyTronBot.TronGame()
-        self.state = MyTronBot.make_state(board, tron.ME)
+        self.state = MyTronBot.TronState(board, tron.ME)
 
     def test_legal_moves(self):
         self.assertEquals(self.game.legal_moves(self.state), [tron.SOUTH])
@@ -210,7 +210,7 @@ class AlphaBetaTestCase(unittest.TestCase):
 
     def test_ab_eval(self):
         board = MyTronBot.read_board('maps/test-board.txt')
-        try_eval = lambda p: MyTronBot.ab_eval(MyTronBot.make_state(board, p))
+        try_eval = lambda p: MyTronBot.ab_eval(MyTronBot.TronState(board, p))
 
         # very simple open board; should tie
         self.assertEquals(try_eval(tron.ME), 0.0)

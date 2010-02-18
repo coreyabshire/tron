@@ -212,11 +212,14 @@ def ab_eval(state):
             return float(p1_room) / float(total) * 2.0 - 1.0
     logging.debug('score %0.2f', score)
     return score
-        
-def make_state(board, to_move, move1=None):
-    "Encapsulate the board and next player in a state struct for AIMA."
-    return utils.Struct(board=board, to_move=to_move, move1=move1)
 
+class TronState():
+
+    def __init__(self, board, to_move, move1=None):
+        self.board = board
+        self.to_move = to_move
+        self.move1 = move1
+        
 class TronGame(games.Game):
     "A representation of Tron compatible with AIMA alpha-beta."
 
@@ -232,9 +235,9 @@ class TronGame(games.Game):
             p1 = opponent(state.to_move)
             next_board = try_move(state.board, p1, state.move1)
             next_board = try_move(next_board, state.to_move, move)
-            return make_state(next_board, p1)
+            return TronState(next_board, p1)
         else:
-            return make_state(state.board, opponent(state.to_move), move)
+            return TronState(state.board, opponent(state.to_move), move)
 
     def utility(self, state, player):
         "Determine the utility of the given terminal state for player."
