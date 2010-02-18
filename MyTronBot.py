@@ -4,7 +4,7 @@
 
 from collections import deque
 import random, math, numpy
-import optparse, logging, time
+import optparse, logging, time, cProfile
 import games, utils
 import dijkstra
 import tron
@@ -27,6 +27,7 @@ argp.add_option("-d", "--depth", type="int", dest="depth", default=6)
 argp.add_option("-l", "--log", dest="logfile", default=None)
 argp.add_option("-s", "--strategy", default="main")
 argp.add_option("--hurry", type="float", dest="hurry", default=0.01)
+argp.add_option("--profile", dest="profile", default=None)
 
 #_____________________________________________________________________
 # Board Helper Functions
@@ -193,7 +194,7 @@ def ab_eval(state):
         p1_pos = board.find(player)
         p2_pos = board.find(opponent(player))
     except KeyError:
-        return 0.0 # one of the players disappears if they crash
+        return -0.5 # one of the players disappears if they crash
     try:
         cpath = shortest_path(board, p1_pos, p2_pos)
         cdist = moves_between(cpath)
@@ -600,7 +601,10 @@ if __name__ == "__main__":
         enable_logging(config.logfile)
     logging.debug('config: %s', config)
     which_move = globals()['%s_strategy' % config.strategy]
-    mainloop()
+    if config.profile:
+        cProfile.run('mainloop()', config.profile)
+    else:
+        mainloop()
 else:
     # Most common case for starting as a library
     # is for an online session from the interpreter
