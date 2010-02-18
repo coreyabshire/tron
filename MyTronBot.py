@@ -41,14 +41,6 @@ def read_board(filename):
     f.close()
     return tron.Board(width, height, board)
 
-def adjacent_nonwall(board, origin):
-    "Return the positions around origin that are not walls."
-    return [c for c in board.adjacent(origin) if board[c] != tron.WALL]
-
-def adjacent_floor(board, origin):
-    "Return the positions around origin that are floor spaces (open)."
-    return [c for c in board.adjacent(origin) if board[c] == tron.FLOOR]
-
 def valid_coords(board, (y,x)):
     "Are the coordinates within the board dimensions?"
     return 0 <= y < board.height and 0 <= x < board.width
@@ -66,6 +58,7 @@ def invert(fn):
 is_wall = tile_is_a(tron.WALL)
 is_floor = tile_is_a(tron.FLOOR)
 is_nonwall = invert(tile_is_a(tron.WALL))
+adjacent_floor = lambda board, coords: adjacent(board, coords, is_floor)
 
 def tiles_matching(board, fn):
     "Collect all tiles on the board matching fn."
@@ -100,8 +93,8 @@ def move_made(board, a, b):
 def is_game_over(board):
     "Determine whether this board is at an end game state."
     try:
-        return not adjacent_floor(board, board.me()) \
-            or not adjacent_floor(board, board.them())
+        return not adjacent(board, board.me(), is_floor) \
+            or not adjacent(board, board.them(), is_floor)
     except KeyError:
         return True # one player disappears if they crash into each other
 
@@ -117,8 +110,8 @@ def win_lose_or_draw(board, player):
         them = board.them()
     except KeyError:
         return -0.5 # one player disappears if they crash into each other
-    me_stuck = not adjacent_floor(board, me)
-    them_stuck = not adjacent_floor(board, them)
+    me_stuck = not adjacent(board, me, is_floor)
+    them_stuck = not adjacent(board, them, is_floor)
     if me_stuck and them_stuck:
         return -0.5
     elif me_stuck or them_stuck:
@@ -219,7 +212,7 @@ class TronState():
         self.board = board
         self.to_move = to_move
         self.move1 = move1
-        
+
 class TronGame(games.Game):
     "A representation of Tron compatible with AIMA alpha-beta."
 
