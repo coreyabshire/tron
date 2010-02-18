@@ -98,8 +98,11 @@ def move_made(board, a, b):
 
 def is_game_over(board):
     "Determine whether this board is at an end game state."
-    return not adjacent_floor(board, board.me()) \
-        or not adjacent_floor(board, board.them())
+    try:
+        return not adjacent_floor(board, board.me()) \
+            or not adjacent_floor(board, board.them())
+    except KeyError:
+        return True # one player disappears if they crash into each other
 
 def print_board(board):
     "Print the board just like the engine does to stdout."
@@ -108,17 +111,22 @@ def print_board(board):
 
 def win_lose_or_draw(board, player):
     "Did player on board is a win (1), lose (-1), or draw (0)."
-    me_stuck = not adjacent_floor(board, board.me())
-    them_stuck = not adjacent_floor(board, board.them())
+    try:
+        me = board.me()
+        them = board.them()
+    except KeyError:
+        return 0.0 # one player disappears if they crash into each other
+    me_stuck = not adjacent_floor(board, me)
+    them_stuck = not adjacent_floor(board, them)
     if me_stuck and them_stuck:
-        return -0.5
+        return 0.0
     elif me_stuck or them_stuck:
         if player == tron.ME:
             return me_stuck and -1 or 1
         else:
             return me_stuck and 1 or -1
     else:
-        return -0.5
+        return 0.0
 
 def set_char(s, i, c):
     "Return a copy of s with the character at index i replaced with c."
@@ -165,10 +173,6 @@ def count_around(board, coords, around=adjacent_floor):
 # AIMA Alpha-Beta Search Interface
 #
 
-def make_state(board, to_move):
-    "Encapsulate the board and next player in a state struct for AIMA."
-    return utils.Struct(board=board, to_move=to_move)
-
 # TODO: Need to find a reliable way to test this without
 #       putting something in place that I constantly have
 #       to modify. Maybe record some scenarios like I
@@ -185,8 +189,11 @@ def ab_eval(state):
     board, player = state.board, state.to_move
     score = 0.0
     cpath = None
-    p1_pos = board.find(player)
-    p2_pos = board.find(opponent(player))
+    try:
+        p1_pos = board.find(player)
+        p2_pos = board.find(opponent(player))
+    except KeyError:
+        return 0.0 # one of the players disappears if they crash
     try:
         cpath = shortest_path(board, p1_pos, p2_pos)
         cdist = moves_between(cpath)
@@ -205,6 +212,10 @@ def ab_eval(state):
     logging.debug('score %0.2f', score)
     return score
         
+def make_state(board, to_move, move1=None):
+    "Encapsulate the board and next player in a state struct for AIMA."
+    return utils.Struct(board=board, to_move=to_move, move1=move1)
+
 class TronGame(games.Game):
     "A representation of Tron compatible with AIMA alpha-beta."
 
@@ -216,8 +227,13 @@ class TronGame(games.Game):
 
     def make_move(self, move, state):
         "Return the new state resulting from making the given move."
-        next_board = try_move(state.board, state.to_move, move)
-        return make_state(next_board, opponent(state.to_move))
+        if state.move1:
+            p1 = opponent(state.to_move)
+            next_board = try_move(state.board, p1, state.move1)
+            next_board = try_move(next_board, state.to_move, move)
+            return make_state(next_board, p1)
+        else:
+            return make_state(state.board, opponent(state.to_move), move)
 
     def utility(self, state, player):
         "Determine the utility of the given terminal state for player."
@@ -480,7 +496,7 @@ class Environment():
         self.start_time = 0      # start time for this move
         self.times = []          # time taken for each move
         self.timed = timed
-        self.time_limit = 3.0    # initial time limit
+        self.time_limit = 1.0    # initial time limit
         
     def update(self, board):
 
@@ -558,19 +574,13 @@ def main_strategy(board):
         logging.debug('using close call')
         my_move = closecall_strategy(board)
 
-
     return my_move
 
 def enable_logging(logfile, level=logging.DEBUG):
     "Enable logging to the specified logfile."
     logging.basicConfig(filename=logfile, level=level, filemode='w')
 
-if __name__ == "__main__":
-    config, args = argp.parse_args()
-    if config.logfile:
-        enable_logging(config.logfile)
-    logging.debug('config: %s', config)
-    which_move = globals()['%s_strategy' % config.strategy]
+def mainloop():
     for board in tron.Board.generate():
         env.update(board)
         logging.debug('move %d', env.nmoves)
@@ -583,5 +593,18 @@ if __name__ == "__main__":
         logging.debug('chose %s', DIRECTION_NAMES[my_move])
         logging.debug("took %0.3f seconds", env.record_time())
         tron.move(my_move)
-else:
+
+if __name__ == "__main__":
     config, args = argp.parse_args()
+    if config.logfile:
+        enable_logging(config.logfile)
+    logging.debug('config: %s', config)
+    which_move = globals()['%s_strategy' % config.strategy]
+    mainloop()
+else:
+    # Most common case for starting as a library
+    # is for an online session from the interpreter
+    # or for the test cases. Calling parse_args
+    # even though there won't be any will set up
+    # all the defaults for either case, which is good.
+    config, args = argp.parse_args() 
