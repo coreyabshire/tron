@@ -58,6 +58,7 @@ def invert(fn):
 is_wall = tile_is_a(tron.WALL)
 is_floor = tile_is_a(tron.FLOOR)
 is_nonwall = invert(tile_is_a(tron.WALL))
+
 adjacent_floor = lambda board, coords: adjacent(board, coords, is_floor)
 
 def tiles_matching(board, fn):
@@ -213,6 +214,15 @@ class TronState():
         self.to_move = to_move
         self.move1 = move1
 
+    def make_move(self, move):
+        next_to_move = opponent(self.to_move)
+        if self.move1:
+            next_board = try_move(self.board, next_to_move, self.move1)
+            next_board = try_move(next_board, self.to_move, move)
+            return TronState(next_board, next_to_move)
+        else:
+            return TronState(self.board, next_to_move, move)
+
 class TronGame(games.Game):
     "A representation of Tron compatible with AIMA alpha-beta."
 
@@ -224,13 +234,7 @@ class TronGame(games.Game):
 
     def make_move(self, move, state):
         "Return the new state resulting from making the given move."
-        if state.move1:
-            p1 = opponent(state.to_move)
-            next_board = try_move(state.board, p1, state.move1)
-            next_board = try_move(next_board, state.to_move, move)
-            return TronState(next_board, p1)
-        else:
-            return TronState(state.board, opponent(state.to_move), move)
+        return state.make_move(move)
 
     def utility(self, state, player):
         "Determine the utility of the given terminal state for player."
@@ -418,7 +422,7 @@ def wall_strategy(board):
 
 def alphabeta_strategy(board):
     "Find a move based on an alpha-beta search of the game tree."
-    state = make_state(board, tron.ME)
+    state = TronState(board, tron.ME)
     stats = utils.Struct(nodes=0, max_depth=0)
     def cutoff(state, depth):
         stats.nodes += 1
