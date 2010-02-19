@@ -13,10 +13,10 @@ import tron
 # Constants and Enumerations
 #
 
-DIRECTION_NAMES = { tron.NORTH : 'NORTH',
-                    tron.SOUTH : 'SOUTH',
-                    tron.EAST  : 'EAST',
-                    tron.WEST  : 'WEST' }
+DIR_NAMES = { tron.NORTH : 'NORTH', tron.SOUTH : 'SOUTH',
+              tron.EAST  : 'EAST',  tron.WEST  : 'WEST' }
+
+DIR_ABBRS = dict(zip(DIR_NAMES.keys(), [s[0] for s in DIR_NAMES.values()]))
 
 #_____________________________________________________________________
 # Configuration
@@ -87,9 +87,12 @@ def surrounding_nonfloor(board, origin):
     a = [offset(origin, o) for o in SOA]
     return [c for c in a if board[c] != tron.FLOOR]
 
-def move_made(board, a, b):
+def move_made((y1,x1),(y2,x2)):
     "Return the move needed to get from a to b. Assumes adjacency."
-    return [d for d in tron.DIRECTIONS if board.rel(d, a) == b][0]
+    if   y2 < y1: return tron.NORTH
+    elif y2 > y1: return tron.SOUTH
+    elif x2 > x1: return tron.EAST
+    else        : return tron.WEST
 
 def is_game_over(board):
     "Determine whether this board is at an end game state."
@@ -174,38 +177,12 @@ def count_around(board, coords, around=adjacent_floor):
 #       started before and write the test cases against it.
 
 def ab_cutoff(state, depth):
-    if depth > config.depth or game.terminal_test(state) or env.need_to_hurry():
+    need_to_hurry = env.need_to_hurry()
+    if depth > config.depth or game.terminal_test(state) or need_to_hurry:
+        logging.debug('cutoff at depth %d, need to hurry %s', depth, need_to_hurry)
         return True
     else:
         return False
-
-def ab_eval(state):
-    "Assign a score to this board relative to player."
-    board, player = state.board, state.to_move
-    score = 0.0
-    cpath = None
-    try:
-        p1_pos = board.find(player)
-        p2_pos = board.find(opponent(player))
-    except KeyError:
-        return -0.5 # one of the players disappears if they crash
-    try:
-        cpath = shortest_path(board, p1_pos, p2_pos)
-        cdist = moves_between(cpath)
-    except KeyError:
-        pass
-    if cpath:
-        pass
-    else:
-        p1_room = count_around(board, p1_pos)
-        p2_room = count_around(board, p2_pos)
-        total = p1_room + p2_room
-        if total == 0.0:
-            return 0.0
-        else: 
-            return float(p1_room) / float(total) * 2.0 - 1.0
-    logging.debug('score %0.2f', score)
-    return score
 
 class TronState():
 
@@ -213,24 +190,144 @@ class TronState():
         self.board = board
         self.to_move = to_move
         self.move1 = move1
+        self._score = None
+        self._children = {}
+        self._available = None
+        self._adjacent = {}
+        self.actual = False
+
+    def adjacent(self, coords):
+        "Find all the moves possible from the current state."
+        if coords in self._adjacent:
+            return self._adjacent[coords]
+        else:
+            b = self.board # short-hand for the board in the current state
+            possible = [(d,b.rel(d, coords)) for d in tron.DIRECTIONS]
+            passable = [(d,pos) for (d,pos) in possible if b.passable(pos)]
+            self._adjacent[coords] = passable
+            return passable
+
+    def available(self):
+        "Find all the moves possible from the current state."
+        return self.adjacent(self.board.find(self.to_move))
+
+    @classmethod
+    def make_root(self, board, to_move):
+        root = TronState(board, to_move, None)
+        root.parent = None
+        root.last_move = None 
+        try:
+            cpath = shortest_path(board, board.me(), board.them())
+            cdist = moves_between(cpath)
+            self._can_touch = True
+        except KeyError:
+            self._can_touch = False
+        return root
+
+    def compute_can_touch(self, board):
+        "Determine whether the players touch by finding a shortest path."
+        try:
+            path = shortest_path(board, board.me(), board.them())
+            logging.debug('path established: %s', path)
+            return True
+        except KeyError:
+            return False
+    
+    def check_can_touch(self, child):
+        "Determine whether the players can touch using move logic."
+        can_touch = False
+        try:
+            me1 = set([d for (d,s) in self.adjacent(self.board.me())])
+            me2 = set([d for (d,s) in child.adjacent(child.board.me())])
+            them1 = set([d for (d,s) in self.adjacent(self.board.them())])
+            them2 = set([d for (d,s) in child.adjacent(child.board.them())])
+            logging.debug('me [%s, %s] them [%s, %s]' % (me1, me2, them1, them2))
+            if me1 - me2 or them1 - them2:
+                logging.debug('need to check can touch')
+                can_touch = self.compute_can_touch(child.board)
+            else:
+                can_touch = True
+        except KeyError:
+            can_touch = False
+        return can_touch
 
     def make_move(self, move):
+        if move in self._children:
+            logging.debug('cache hit on child')
+            return self._children[move]
         next_to_move = opponent(self.to_move)
         if self.move1:
             next_board = try_move(self.board, next_to_move, self.move1)
             next_board = try_move(next_board, self.to_move, move)
-            return TronState(next_board, next_to_move)
+            child = TronState(next_board, next_to_move)
+            if self._can_touch:
+                child._can_touch = self.check_can_touch(child)
+            else:
+                child._can_touch = False
         else:
-            return TronState(self.board, next_to_move, move)
+            child = TronState(self.board, next_to_move, move)
+            child._can_touch = self._can_touch
+        logging.debug('can_touch result: %s %s', self.board.me(), child.can_touch())
+        self._children[move] = child
+        child.parent = self
+        child.last_move = move
+        return child
+
+    def connected(self):
+        return self._connected
+
+    def count_around(self, player):
+        return self._count_around[player]
+
+    def can_touch(self):
+        return self._can_touch
+
+    def score(self):
+        "Assign a score to this board relative to player."
+        if self._score:
+            logging.debug('cache hit on score: %0.2f', self._score)
+            return self._score
+        board, player = self.board, self.to_move
+        score = 0.0
+        try:
+            p1_pos = board.find(tron.ME)
+            p2_pos = board.find(tron.THEM)
+            if self.can_touch():
+                pass
+            else:
+                p1_room = count_around(board, p1_pos)
+                p2_room = count_around(board, p2_pos)
+                logging.debug('cant touch %d %d', p1_room, p2_room)
+                total = p1_room + p2_room
+                if total == 0.0:
+                    score = 0.0
+                else: 
+                    score = float(p1_room) / float(total) * 2.0 - 1.0
+        except KeyError:
+            score = -0.5 # one of the players disappears if they crash
+
+        logging.debug('score %0.2f; %s; %s', score, self.list_moves(), self.can_touch())
+        for line in board.board:
+            logging.debug(line)
+        self._score = score
+        return score
+
+    def list_moves(self):
+        state = self
+        moves = []
+        while state:
+            if state.parent:
+                d = DIR_ABBRS[state.last_move]
+                moves.append("%s,%s" % (state.parent.to_move, d))
+            state = state.parent
+        return moves
 
 class TronGame(games.Game):
     "A representation of Tron compatible with AIMA alpha-beta."
 
     def legal_moves(self, state):
         "Find all the moves possible from the current state."
-        b = state.board # short-hand for the board in the current state
-        c = b.find(state.to_move) # coords of current player
-        return [d for d in tron.DIRECTIONS if b.passable(b.rel(d, c))]
+        return [d for (d,s) in state.available()]
 
     def make_move(self, move, state):
         "Return the new state resulting from making the given move."
@@ -238,7 +335,7 @@ class TronGame(games.Game):
 
     def utility(self, state, player):
         "Determine the utility of the given terminal state for player."
-        return win_lose_or_draw(state.board, player)
+        return win_lose_or_draw(state.board, tron.ME)
 
     def terminal_test(self, state):
         "Determine whether the current state is a leaf state."
@@ -397,7 +494,8 @@ def free_strategy(board):
 ORDER = list(tron.DIRECTIONS)
 random.shuffle(ORDER)
 
-def wall_strategy(board):
+def wall_strategy(state):
+    board = state.board
 
     decision = board.moves()[0]
 
@@ -420,20 +518,21 @@ def wall_strategy(board):
 
     return decision
 
-def alphabeta_strategy(board):
+def alphabeta_strategy(state):
     "Find a move based on an alpha-beta search of the game tree."
-    state = TronState(board, tron.ME)
     stats = utils.Struct(nodes=0, max_depth=0)
     def cutoff(state, depth):
         stats.nodes += 1
         stats.max_depth = max(stats.max_depth, depth)
         return ab_cutoff(state, depth)
-    d = games.alphabeta_search(state, game, cutoff_test=cutoff, eval_fn=ab_eval)
+    eval_fn = lambda state: state.score()
+    d = games.alphabeta_search(state, game, cutoff_test=cutoff, eval_fn=eval_fn)
     logging.debug('alphabeta %s (%s)', d, stats)
     return d
 
-def heatseaker_strategy(board):
+def heatseeker_strategy(state):
     "Use hotspots to identify and find targets."
+    board = state.board
     try:
         me = board.me()
         heat = heat_map(board)
@@ -442,20 +541,21 @@ def heatseaker_strategy(board):
         target = hotspots[0]
         path = shortest_path(board, me, target)
         next_step = path[1]
-        move = move_made(board, me, next_step)
+        move = move_made(me, next_step)
         return move
     except KeyError:
-        return alphabeta_strategy(board)
+        return alphabeta_strategy(state)
 
-def closecall_strategy(board):
+def closecall_strategy(state):
     "Get close to the opponent then solve with alphabeta."
+    board = state.board
     try:
         path = shortest_path(board, board.me(), board.them())
         n = moves_between(path)
         if (n <= 3):
             return alphabeta_strategy(board)
         else:
-            return move_made(board, board.me(), path[1])
+            return move_made(board.me(), path[1])
     except KeyError:
         return alphabeta_strategy(board)
 
@@ -481,6 +581,7 @@ class Environment():
         self.reset(timed)
 
     def reset(self, timed=True):
+        time_limit = 2.0
         self.first_move = True   # is this our first move or not?
         self.walls = []          # a list of the walls on this board
         self.bh = []             # history of all boards received
@@ -497,7 +598,7 @@ class Environment():
         self.start_time = 0      # start time for this move
         self.times = []          # time taken for each move
         self.timed = timed
-        self.time_limit = 1.0    # initial time limit
+        self.time_limit = time_limit    # initial time limit
         
     def update(self, board):
 
@@ -515,9 +616,8 @@ class Environment():
             self.walls = find_walls(board)
             self.first_move = False
         else:
-            self.mmh.append(move_made(board, self.mph[-2], self.mph[-1]))
-            self.emh.append(move_made(board, self.eph[-2], self.eph[-1]))
-            self.time_limit = 1.0
+            self.mmh.append(move_made(self.mph[-2], self.mph[-1]))
+            self.emh.append(move_made(self.eph[-2], self.eph[-1]))
 
     def elapsed(self):
         return time.time() - self.start_time
@@ -539,8 +639,9 @@ env = Environment()
 # Main Decision Routine
 #
 
-def main_strategy(board):
+def main_strategy(state):
     "Determine which move to make given the current board state."
+    board = state.board
     
     # fill in your code here. it must return one of the following directions:
     #   tron.NORTH, tron.EAST, tron.SOUTH, tron.WEST
@@ -563,7 +664,7 @@ def main_strategy(board):
             env.mfm = deque()
     if not env.mfm and cpath:
         for i in xrange(cdist):
-            env.mfm.append(move_made(board, cpath[i], cpath[i+1]))
+            env.mfm.append(move_made(cpath[i], cpath[i+1]))
 
     # in some cases we will be asked to move when there is no
     # move available: it doesn't matter, just return NORTH
@@ -582,17 +683,30 @@ def enable_logging(logfile, level=logging.DEBUG):
     logging.basicConfig(filename=logfile, level=level, filemode='w')
 
 def mainloop():
+    root = state = None
     for board in tron.Board.generate():
+        if env.first_move:
+            root = state = TronState.make_root(board, tron.ME)
+            state.actual = True
+        else:
+            their_move = move_made(state.board.them(), board.them())
+            logging.debug('them: %s, %s', state.board.them(), board.them())
+            logging.debug('their move was %s', DIR_NAMES[their_move])
+            state = state.make_move(their_move)
+            state.actual = True
         env.update(board)
         logging.debug('move %d', env.nmoves)
         my_move = tron.NORTH # default if no moves available
         if adjacent_floor(board, board.me()):
-            my_move = which_move(board)
+            my_move = which_move(state)
         else:
             logging.debug('no legal moves remaining')
             logging.debug('bypassing strategy')
-        logging.debug('chose %s', DIRECTION_NAMES[my_move])
+        logging.debug('chose %s', DIR_NAMES[my_move])
         logging.debug("took %0.3f seconds", env.record_time())
+        state = state.make_move(my_move)
+        state.actual = True
+        logging.debug('my new pos: %s', state.board.me())
         tron.move(my_move)
 
 if __name__ == "__main__":

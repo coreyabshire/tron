@@ -115,7 +115,7 @@ class BoardHelperTestCase(unittest.TestCase):
 
     def test_move_made(self):
         board = MyTronBot.read_board('maps/test-board.txt')
-        fn = lambda a,b: MyTronBot.move_made(board, a, b)
+        fn = lambda a,b: MyTronBot.move_made(a, b)
         self.assertEquals(fn((1,1),(2,1)), tron.SOUTH)
         self.assertEquals(fn((2,1),(1,1)), tron.NORTH)
         self.assertEquals(fn((1,1),(1,2)), tron.EAST)
@@ -174,7 +174,7 @@ class AlphaBetaTestCase(unittest.TestCase):
     def setUp(self):
         board = MyTronBot.read_board('maps/test-board.txt')
         self.game = MyTronBot.TronGame()
-        self.state = MyTronBot.TronState(board, tron.ME)
+        self.state = MyTronBot.TronState.make_root(board, tron.ME)
 
     def test_legal_moves(self):
         self.assertEquals(self.game.legal_moves(self.state), [tron.SOUTH])
@@ -195,11 +195,9 @@ class AlphaBetaTestCase(unittest.TestCase):
     def test_utility(self):
         next = self.state
         self.assertEquals(self.game.utility(next, tron.ME), -0.5)
-        self.assertEquals(self.game.utility(next, tron.THEM), -0.5)
         board = next.board
         board.board[2] = '######'
         self.assertEquals(self.game.utility(next, tron.ME), -1)
-        self.assertEquals(self.game.utility(next, tron.THEM), 1)
         
     def test_terminal_test(self):
         next = self.state
@@ -208,47 +206,46 @@ class AlphaBetaTestCase(unittest.TestCase):
         board.board[2] = '######'
         self.assertTrue(self.game.terminal_test(next))
 
-    def test_ab_eval(self):
+    def test_score(self):
         board = MyTronBot.read_board('maps/test-board.txt')
-        try_eval = lambda p: MyTronBot.ab_eval(MyTronBot.TronState(board, p))
+        state = MyTronBot.TronState.make_root(board, tron.ME)
 
         # very simple open board; should tie
-        self.assertEquals(try_eval(tron.ME), 0.0)
-        self.assertEquals(try_eval(tron.THEM), 0.0)
+        self.assertEquals(state.score(), 0.0)
 
         # very simple closed board; should also tie
         board.board[2] = '# ####'
-        self.assertEquals(try_eval(tron.ME), 0.0)
-        self.assertEquals(try_eval(tron.THEM), 0.0)
+        state = MyTronBot.TronState.make_root(board, tron.ME)
+        self.assertEquals(state.score(), 0.0)
 
         # advantage me
         board.board[2] = '#  ###'
+        state = MyTronBot.TronState.make_root(board, tron.ME)
         a = 1.0 / 3.0
-        self.assertAlmostEqual(try_eval(tron.ME), a)
-        self.assertAlmostEqual(try_eval(tron.THEM), -a)
+        self.assertAlmostEqual(state.score(), a)
 
         # advantage them
         board.board[2] = '# # ##'
+        state = MyTronBot.TronState.make_root(board, tron.ME)
         a = 1.0 / 3.0
-        self.assertAlmostEqual(try_eval(tron.ME), -a)
-        self.assertAlmostEqual(try_eval(tron.THEM), a)
+        self.assertAlmostEqual(state.score(), -a)
 
         # I'm stuck
         board.board[2] = '######'
-        self.assertEquals(try_eval(tron.ME), -1.0)
-        self.assertEquals(try_eval(tron.THEM), 1.0)
+        state = MyTronBot.TronState.make_root(board, tron.ME)
+        self.assertEquals(state.score(), -1.0)
         
         # they're stuck
         board.board[1] = '#1##2#'
         board.board[2] = '#   ##'
-        self.assertEquals(try_eval(tron.ME), 1.0)
-        self.assertEquals(try_eval(tron.THEM), -1.0)
+        state = MyTronBot.TronState.make_root(board, tron.ME)
+        self.assertEquals(state.score(), 1.0)
 
         # both stuck - make sure doesn't divide by zero!
         board.board[1] = '#1##2#'
         board.board[2] = '######'
-        self.assertEquals(try_eval(tron.ME), 0.0)
-        self.assertEquals(try_eval(tron.THEM), 0.0)
+        state = MyTronBot.TronState.make_root(board, tron.ME)
+        self.assertEquals(state.score(), 0.0)
 
 #_____________________________________________________________________
 # Shortest Path Tests
