@@ -41,6 +41,18 @@ def read_board(filename):
     f.close()
     return tron.Board(width, height, board)
 
+def write_board(board, filename):
+    f = open(filename, 'w')
+    f.write('%d %d\n' % (board.width, board.height))
+    for line in board.board:
+        f.write('%s\n' % line)
+    f.close()
+
+def print_board(board, filename):
+    print board.width, board.height
+    for line in board.board:
+        print line
+
 def valid_coords(board, (y,x)):
     "Are the coordinates within the board dimensions?"
     return 0 <= y < board.height and 0 <= x < board.width
@@ -394,6 +406,13 @@ def centrality(board):
     V = tiles_matching(board, is_floor)
     A = Adjacent(board, is_floor)
     return brandes(V, A)
+
+def articulation_points(V, A):
+    S = []
+    pass
+
+def depth_first_search(board, coords):
+    pass
 
 #_____________________________________________________________________
 # Environment Recognition

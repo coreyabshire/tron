@@ -112,6 +112,48 @@ class TronGrid(Grid):
         self.me = me
         self.them = them
 
+class TronGridEditor(TronGrid):
+
+    def __init__(self, parent, board, cellsize=15, colors=colors):
+        TronGrid.__init__(self, parent, board, cellsize, colors)
+        self.char = tron.WALL
+        self.board = board
+        self.canvas.bind('<Button-1>', self.paint_tile)
+        self.canvas.bind('<B1-Motion>', self.paint_tile)
+        parent.bind('<Key>', self.change_brush)
+    
+    def paint_tile(self, event):
+        canvas = event.widget
+        board = self.board.board
+        x = int(canvas.canvasx(event.x) / self.cellsize)
+        y = int(canvas.canvasy(event.y) / self.cellsize)
+        board[y] = MyTronBot.set_char(board[y], x, self.char)
+        self[y,x] = self.colors[self.char]
+
+    def change_brush(self, event):
+        if event.char in colors:
+            self.char = event.char
+
+def edit_board(board, squaresize=15):
+    root = Tk()
+    root.bind("<Escape>", lambda e: root.destroy())
+    grid = TronGridEditor(root, board, squaresize, colors)
+    grid.draw(board)
+    grid.pack()
+    mainloop()
+
+def derive_case(infile, outfile, squaresize=15):
+    root = Tk()
+    root.bind("<Escape>", lambda e: done())
+    board = MyTronBot.read_board(infile)
+    def done():
+        MyTronBot.write_board(board, outfile)
+        root.destroy()
+    grid = TronGridEditor(root, board, squaresize, colors)
+    grid.draw(board)
+    grid.pack()
+    mainloop()
+
 def show_board(board, squaresize=15):
     root = Tk()
     root.bind("<Escape>", lambda e: root.destroy())
