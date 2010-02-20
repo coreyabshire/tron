@@ -350,9 +350,15 @@ def moves_between(path):
     "Number of moves it would take for two players to traverse the path."
     return len(path) - 2
 
-def betweenness_centrality(board):
-    "Betweenness centrality in unweighted graph. Brandes Algorithm"
-    V = tiles_matching(board, is_floor)
+class Adjacent():
+    def __init__(self, board, test):
+        self.board = board
+        self.test = test
+    def __getitem__(self, coords):
+        return adjacent(self.board, coords, self.test)
+
+def brandes(V, A):
+    "Brandes algorithm for betweenness centrality in an unweighted graph."
     C = dict((v,0) for v in V)
     for s in V:
         S = []
@@ -364,7 +370,7 @@ def betweenness_centrality(board):
         while Q:
             v = Q.popleft()
             S.append(v)
-            for w in adjacent(board, v, is_floor):
+            for w in A[v]:
                 if d[w] < 0:
                     Q.append(w)
                     d[w] = d[v] + 1
@@ -379,8 +385,12 @@ def betweenness_centrality(board):
                 if w != s:
                     C[w] = C[w] + e[w]
     return C
-                    
 
+def centrality(board):
+    "Compute betweenness centrality for the floor of a Tron board."
+    V = tiles_matching(board, is_floor)
+    A = Adjacent(board, is_floor)
+    return brandes(V, A)
 
 #_____________________________________________________________________
 # Environment Recognition
