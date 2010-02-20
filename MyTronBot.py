@@ -4,7 +4,7 @@
 
 from collections import deque
 import random, math, numpy
-import optparse, logging, time, cProfile
+import optparse, logging, time, cProfile, sys
 import games, utils
 import dijkstra
 import tron
@@ -28,6 +28,7 @@ argp.add_option("-l", "--log", dest="logfile", default=None)
 argp.add_option("-s", "--strategy", default="main")
 argp.add_option("--hurry", type="float", dest="hurry", default=0.01)
 argp.add_option("--profile", dest="profile", default=None)
+argp.add_option("--time_limit", dest="time_limit", type="int", default=1.0)
 
 #_____________________________________________________________________
 # Board Helper Functions
@@ -207,6 +208,10 @@ class TronState():
         self._available = None
         self._adjacent = {}
         self.actual = False
+        try:
+            self._count_around = dfs_count_around(board)
+        except KeyError:
+            self._count_around = None
 
     def adjacent(self, coords):
         "Find all the moves possible from the current state."
@@ -275,17 +280,22 @@ class TronState():
             return self._score
         board, player = self.board, self.to_move
         score = 0.0
-        try:
-            p1_pos = board.find(tron.ME)
-            p2_pos = board.find(tron.THEM)
-            p1_room = self.count_around(p1_pos)
-            p2_room = self.count_around(p2_pos)
-            total = p1_room + p2_room
-            if total == 0.0:
-                score = 0.0
-            else: 
-                score = float(p1_room) / float(total) * 2.0 - 1.0
-        except KeyError:
+        if self._count_around:
+            p1, p2, t = self._count_around
+            if not (p1 or p2):
+                score = -0.5
+            elif not p1:
+                score = -1.0
+            elif not p2:
+                score = 1.0
+            else:
+                m1, m2 = max(p1.values()), max(p2.values())
+                total = m1 + m2
+                if total == 0.0:
+                    score = 0.0
+                else: 
+                    score = float(m1) / float(total) * 2.0 - 1.0
+        else:
             score = -0.5 # one of the players disappears if they crash
 
         logging.debug('score %0.2f; %s', score, self.list_moves())
@@ -407,12 +417,111 @@ def centrality(board):
     A = Adjacent(board, is_floor)
     return brandes(V, A)
 
-def articulation_points(V, A):
-    S = []
-    pass
+def articulation_points(board, root):
+    sys.setrecursionlimit(2500)
+    V = set()
+    A = Adjacent(board, is_floor)
+    L = {}
+    N = {}
+    c = [0]
+    P = {}
+    X = set()
+    def artpt(v):
+        V.add(v)
+        c[0] += 1
+        L[v] = N[v] = c[0]
+        for w in A[v]:
+            if w not in V:
+                P[w] = v
+                artpt(w)
+                if v != root and L[w] >= N[v]:
+                    X.add(v)
+                L[v] = min(L[v], L[w])
+            else:
+                if v in P and P[v] != w:
+                    L[v] = min(L[v], N[w])
+    artpt(root)
+    return X
 
-def depth_first_search(board, coords):
-    pass
+def dfs2(root, A, visited = None, preorder_process = lambda x: None):
+    "Given a starting vertex, root, do a depth-first search."
+    # see http://en.wikipedia.org/wiki/Depth-first_search#Implementation_in_Python
+    to_visit = []  # a list can be used as a stack in Python
+    if visited is None: visited = set()
+    to_visit.append(root) # Start with root
+    while len(to_visit) != 0:
+        v = to_visit.pop()
+        if v not in visited:
+            visited.add(v)
+            preorder_process(v)
+            to_visit.extend(A[v])
+
+def dfs_count_around(board):
+    N = [tron.ME, tron.THEM]
+    A = Adjacent(board, is_floor)
+    P = [board.me(), board.them()]
+    C = [{} for p in P]
+    T = []
+    remaining = set(A[P[0]] + A[P[1]])
+    while remaining:
+        u = remaining.pop()
+        V = set([])
+        dfs2(u, A, V)
+        c = len(V)
+        t = []
+        for i in range(len(P)):
+            p = P[i]
+            for a in A[p]:
+                if a in V:
+                    d = move_made(p, a)
+                    C[i][d] = c
+                    t.append((N[i],d))
+                    if a in remaining:
+                        remaining.remove(a)
+        T.append(t)
+    return C[0], C[1], T
+
+def dfs(V,A):
+    # see CLRS (2nd) p. 541
+    WHITE, GRAY, BLACK = 0, 1, 2
+    init = lambda x: dict((u, x) for u in V)
+    color, pi, d, f = [init(x) for x in (WHITE, None, 0, 0)]
+    time = [0]
+    depth = [0]
+    max_depth = [0]
+    n = [0]
+    def visit(u):
+        depth[0] += 1
+        n[0] += 1
+        max_depth[0] = max(max_depth[0], depth[0])
+        color[u] = GRAY
+        time[0] += 1
+        d[u] = time[0]
+        for v in A[u]:
+            if color[v] == WHITE:
+                pi[v] = u
+                visit(v)
+        f[u] = time[0] = time[0] + 1
+        depth[0] -= 1
+    for u in V:
+        if color[u] == WHITE:
+            visit(u)
+    return d, f, pi, max_depth[0], n[0]
+
+def depth_first_search(board):
+    V = tiles_matching(board, is_floor)
+    A = Adjacent(board, is_floor)
+    return dfs(V, A)
+
+def components(board):
+    A = Adjacent(board, is_floor)
+    Va = tiles_matching(board, is_floor)
+    d,f,pi = dfs(Va,A)
+    Vb = f.keys()
+    Vb.sort(key=lambda x: f[x])
+    g,h,pi = dfs(Vb,A)
+    return g,h,pi
+    
 
 #_____________________________________________________________________
 # Environment Recognition
@@ -588,11 +697,11 @@ def closecall_strategy(state):
         path = shortest_path(board, board.me(), board.them())
         n = moves_between(path)
         if (n <= 3):
-            return alphabeta_strategy(board)
+            return alphabeta_strategy(state)
         else:
             return move_made(board.me(), path[1])
     except KeyError:
-        return alphabeta_strategy(board)
+        return alphabeta_strategy(state)
 
 # TODO: Test case on which_move which tests that index out of
 #       range no longer occurs when we have no move available
@@ -616,7 +725,7 @@ class Environment():
         self.reset(timed)
 
     def reset(self, timed=True):
-        time_limit = 2.0
+        time_limit = 1.0
         self.first_move = True   # is this our first move or not?
         self.walls = []          # a list of the walls on this board
         self.bh = []             # history of all boards received
@@ -750,6 +859,7 @@ if __name__ == "__main__":
         enable_logging(config.logfile)
     logging.debug('config: %s', config)
     which_move = globals()['%s_strategy' % config.strategy]
+    env.time_limit = config.time_limit
     if config.profile:
         cProfile.run('mainloop()', config.profile)
     else:
