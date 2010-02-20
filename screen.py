@@ -154,13 +154,18 @@ def derive_case(infile, outfile, squaresize=15):
     grid.pack()
     mainloop()
 
-def show_board(board, squaresize=15):
+def show_board(board, squaresize=15, title='My Map'):
     root = Tk()
+    root.title(title)
     root.bind("<Escape>", lambda e: root.destroy())
     grid = TronGrid(root, board, squaresize, colors)
     grid.draw(board)
     grid.pack()
     mainloop()
+
+def show_map(filename, squaresize=15):
+    board = MyTronBot.read_board(filename)
+    show_board(board, squaresize, filename)
 
 def show_path(board, path, fill='yellow', line_color='black'):
     root = Tk()
