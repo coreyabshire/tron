@@ -351,6 +351,7 @@ def moves_between(path):
     return len(path) - 2
 
 class Adjacent():
+    "Dictionary for adjacent tiles on a Tron board."
     def __init__(self, board, test):
         self.board = board
         self.test = test
@@ -358,7 +359,9 @@ class Adjacent():
         return adjacent(self.board, coords, self.test)
 
 def brandes(V, A):
-    "Brandes algorithm for betweenness centrality in an unweighted graph."
+    "Compute betweenness centrality in an unweighted graph."
+    # Brandes algorithm
+    # see http://www.cs.ucc.ie/~rb4/resources/Brandes.pdf
     C = dict((v,0) for v in V)
     for s in V:
         S = []
