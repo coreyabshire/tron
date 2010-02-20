@@ -216,40 +216,26 @@ class TronState():
         root = TronState(board, to_move, None)
         root.parent = None
         root.last_move = None 
-        try:
-            cpath = shortest_path(board, board.me(), board.them())
-            cdist = moves_between(cpath)
-            self._can_touch = True
-        except KeyError:
-            self._can_touch = False
         return root
 
-    def compute_can_touch(self, board):
-        "Determine whether the players touch by finding a shortest path."
-        try:
-            path = shortest_path(board, board.me(), board.them())
-            logging.debug('path established: %s', path)
-            return True
-        except KeyError:
-            return False
-    
-    def check_can_touch(self, child):
-        "Determine whether the players can touch using move logic."
-        can_touch = False
-        try:
-            me1 = set([d for (d,s) in self.adjacent(self.board.me())])
-            me2 = set([d for (d,s) in child.adjacent(child.board.me())])
-            them1 = set([d for (d,s) in self.adjacent(self.board.them())])
-            them2 = set([d for (d,s) in child.adjacent(child.board.them())])
-            logging.debug('me [%s, %s] them [%s, %s]' % (me1, me2, them1, them2))
-            if me1 - me2 or them1 - them2:
-                logging.debug('need to check can touch')
-                can_touch = self.compute_can_touch(child.board)
-            else:
-                can_touch = True
-        except KeyError:
-            can_touch = False
-        return can_touch
+    def count_around(self, player):
+        "All the open spaces around coords."
+        # http://mail.python.org/pipermail/image-sig/2005-September/003559.html
+        board = self.board
+        count = 0
+        edge = [player]
+        seen = set([player])
+        while edge:
+            newedge = []
+            for tile in edge:
+                for adj in adjacent(board, tile, is_floor):
+                    if adj not in seen:
+                        if board[adj] == tron.FLOOR:
+                            count += 1
+                            seen.add(adj)
+                            newedge.append(adj)
+            edge = newedge
+        return count
 
     def make_move(self, move):
         if move in self._children:
@@ -260,14 +246,8 @@ class TronState():
             next_board = try_move(self.board, next_to_move, self.move1)
             next_board = try_move(next_board, self.to_move, move)
             child = TronState(next_board, next_to_move)
-            if self._can_touch:
-                child._can_touch = self.check_can_touch(child)
-            else:
-                child._can_touch = False
         else:
             child = TronState(self.board, next_to_move, move)
-            child._can_touch = self._can_touch
-        logging.debug('can_touch result: %s %s', self.board.me(), child.can_touch())
         self._children[move] = child
         child.parent = self
         child.last_move = move
@@ -275,12 +255,6 @@ class TronState():
 
     def connected(self):
         return self._connected
-
-    def count_around(self, player):
-        return self._count_around[player]
-
-    def can_touch(self):
-        return self._can_touch
 
     def score(self):
         "Assign a score to this board relative to player."
@@ -292,21 +266,17 @@ class TronState():
         try:
             p1_pos = board.find(tron.ME)
             p2_pos = board.find(tron.THEM)
-            if self.can_touch():
-                pass
-            else:
-                p1_room = count_around(board, p1_pos)
-                p2_room = count_around(board, p2_pos)
-                logging.debug('cant touch %d %d', p1_room, p2_room)
-                total = p1_room + p2_room
-                if total == 0.0:
-                    score = 0.0
-                else: 
-                    score = float(p1_room) / float(total) * 2.0 - 1.0
+            p1_room = self.count_around(p1_pos)
+            p2_room = self.count_around(p2_pos)
+            total = p1_room + p2_room
+            if total == 0.0:
+                score = 0.0
+            else: 
+                score = float(p1_room) / float(total) * 2.0 - 1.0
         except KeyError:
             score = -0.5 # one of the players disappears if they crash
 
-        logging.debug('score %0.2f; %s; %s', score, self.list_moves(), self.can_touch())
+        logging.debug('score %0.2f; %s', score, self.list_moves())
         for line in board.board:
             logging.debug(line)
         self._score = score
@@ -320,6 +290,7 @@ class TronState():
                 d = DIR_ABBRS[state.last_move]
                 moves.append("%s,%s" % (state.parent.to_move, d))
             state = state.parent
+        moves.reverse()
         return moves
 
 class TronGame(games.Game):
@@ -378,6 +349,38 @@ def shortest_path(board, start, end, test=is_nonwall):
 def moves_between(path):
     "Number of moves it would take for two players to traverse the path."
     return len(path) - 2
+
+def betweenness_centrality(board):
+    "Betweenness centrality in unweighted graph. Brandes Algorithm"
+    V = tiles_matching(board, is_floor)
+    C = dict((v,0) for v in V)
+    for s in V:
+        S = []
+        P = dict((w,[]) for w in V)
+        g = dict((t, 0) for t in V); g[s] = 1
+        d = dict((t,-1) for t in V); d[s] = 0
+        Q = deque([])
+        Q.append(s)
+        while Q:
+            v = Q.popleft()
+            S.append(v)
+            for w in adjacent(board, v, is_floor):
+                if d[w] < 0:
+                    Q.append(w)
+                    d[w] = d[v] + 1
+                if d[w] == d[v] + 1:
+                    g[w] = g[w] + g[v]
+                    P[w].append(v)
+        e = dict((v, 0) for v in V)
+        while S:
+            w = S.pop()
+            for v in P[w]:
+                e[v] = e[v] + (g[v]/g[w]) * (1 + e[w])
+                if w != s:
+                    C[w] = C[w] + e[w]
+    return C
+                    
+
 
 #_____________________________________________________________________
 # Environment Recognition
