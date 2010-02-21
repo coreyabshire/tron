@@ -64,6 +64,29 @@ def run_fill(board, strategy, player=tron.ME, dump=False):
         path.append(coords)
     return path
         
+def run_fill_wall(board):
+    ORDER = list(tron.DIRECTIONS)
+    random.shuffle(ORDER)
+    pos = board.me()
+    seen = set([pos])
+    path = [pos]
+    moves = adjacent(board, pos, is_floor)
+    adj = lambda p: [c for c in adjacent(board, p, is_floor) if c not in seen]
+    while moves:
+        decision = move_made(pos, moves[0])
+        for dir in ORDER:
+            dest = board.rel(dir, pos)
+            if not board[dest] == tron.FLOOR and dest not in path:
+                continue
+            if any(board[pos] == tron.WALL for pos in adj(dest)):
+                decision = dir
+                break
+        pos = board.rel(decision, pos)
+        moves = [m for m in adjacent(board, pos, is_floor) if m not in seen]
+        seen.add(pos)
+        path.append(pos)
+    return path
+
         
 def valid_coords(board, (y,x)):
     "Are the coordinates within the board dimensions?"
@@ -118,6 +141,9 @@ def move_made((y1,x1),(y2,x2)):
     elif x2 > x1: return tron.EAST
     else        : return tron.WEST
 
+def distance((y1,x1),(y2,x2)):
+    return abs(x2-x1) + abs(y2-y1)
+    
 def is_game_over(board):
     "Determine whether this board is at an end game state."
     try:
@@ -701,6 +727,9 @@ def closecall_strategy(state):
     except KeyError:
         return alphabeta_strategy(state)
 
+def disconnected_strategy(state):
+    return wall_strategy(state)
+
 # TODO: Test case on which_move which tests that index out of
 #       range no longer occurs when we have no move available
 #       at the beginning of our turn. legal_moves was returning
@@ -741,6 +770,7 @@ class Environment():
         self.times = []          # time taken for each move
         self.timed = timed
         self.time_limit = time_limit    # initial time limit
+        self.connected = True    # are my opponent and I connected by squares
         
     def update(self, board):
 
@@ -760,6 +790,21 @@ class Environment():
         else:
             self.mmh.append(move_made(self.mph[-2], self.mph[-1]))
             self.emh.append(move_made(self.eph[-2], self.eph[-1]))
+
+        # distance assuming no obstacles
+        dist = distance(board.me(), board.them())
+        logging.debug('distance: %d', dist)
+
+        # shortest path between me and my enemy, or none if we're disconnected
+        if self.connected:
+            self.cpath = None
+            self.cdist = None
+            try:
+                self.cpath = shortest_path(board, board.me(), board.them())
+                self.cdist = moves_between(self.cpath)
+            except KeyError:
+                self.cpath = None
+                self.connected = False
 
     def elapsed(self):
         return time.time() - self.start_time
@@ -790,33 +835,26 @@ def main_strategy(state):
 
     # record history and other facts about the board for use throughout
 
-
-    # shortest path between me and my enemy, or none if we're disconnected
-    cpath = None
-    cdist = None
-    try:
-        cpath = shortest_path(board, board.me(), board.them())
-        cdist = moves_between(cpath)
-    except KeyError:
-        cpath = None
-
     # calculate future moves
     if env.mfm:
         if not board.passable(board.rel(env.mfm[0], board.me())):
             env.mfm = deque()
-    if not env.mfm and cpath:
-        for i in xrange(cdist):
-            env.mfm.append(move_made(cpath[i], cpath[i+1]))
+    if not env.mfm and env.cpath:
+        for i in xrange(env.cdist):
+            env.mfm.append(move_made(env.cpath[i], env.cpath[i+1]))
 
     # in some cases we will be asked to move when there is no
     # move available: it doesn't matter, just return NORTH
-    if cdist > 3 and env.mfm:
-        logging.debug('using cached path')
-        my_move = env.mfm.popleft()
+    if env.connected:
+        if env.cdist > 3 and env.mfm:
+            logging.debug('using cached path')
+            my_move = env.mfm.popleft()
+        else:
+            # determine which move I should make
+            logging.debug('using close call')
+            my_move = closecall_strategy(state)
     else:
-        # determine which move I should make
-        logging.debug('using close call')
-        my_move = closecall_strategy(board)
+        my_move = disconnected_strategy(state)
 
     return my_move
 
