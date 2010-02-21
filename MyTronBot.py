@@ -5,7 +5,7 @@
 from collections import deque
 import random, math, numpy
 import optparse, logging, time, cProfile, sys
-import games, utils
+import search, games, utils
 import dijkstra
 import tron
 
@@ -54,6 +54,17 @@ def print_board(board, filename):
     for line in board.board:
         print line
 
+def run_fill(board, strategy, player=tron.ME, dump=False):
+    path = []
+    while not is_game_over(board):
+        state = TronState.make_root(board, player)
+        move = strategy(state)
+        board = try_move(board, player, move)
+        coords = board.me()
+        path.append(coords)
+    return path
+        
+        
 def valid_coords(board, (y,x)):
     "Are the coordinates within the board dimensions?"
     return 0 <= y < board.height and 0 <= x < board.width
@@ -419,28 +430,23 @@ def centrality(board):
 
 def articulation_points(board, root):
     sys.setrecursionlimit(2500)
-    V = set()
-    A = Adjacent(board, is_floor)
-    L = {}
-    N = {}
-    c = [0]
-    P = {}
-    X = set()
-    def artpt(v):
+    V = set(); A = Adjacent(board, is_floor)
+    L = {}; N = {}; c = [0]; P = {}; X = set()
+    def f(v):
         V.add(v)
         c[0] += 1
         L[v] = N[v] = c[0]
         for w in A[v]:
             if w not in V:
                 P[w] = v
-                artpt(w)
+                f(w)
                 if v != root and L[w] >= N[v]:
                     X.add(v)
                 L[v] = min(L[v], L[w])
             else:
                 if v in P and P[v] != w:
                     L[v] = min(L[v], N[w])
-    artpt(root)
+    f(root)
     return X
 
 def dfs2(root, A, visited = None, preorder_process = lambda x: None):
@@ -602,13 +608,15 @@ def same_distance(board, a, b):
 # use in interfacing to the AIMA alpha-beta search routine.
 game = TronGame() 
 
-def random_strategy(board):
+def random_strategy(state):
     # For now, choose a legal move randomly.
     # Note that board.moves will produce [NORTH] if there are no
     # legal moves available.
+    board = state.board
     return random.choice(board.moves())
 
-def most_open_strategy(board):
+def most_open_strategy(state):
+    board = state.board
     coords = board.me()
     best_move = tron.NORTH
     highest = 0
@@ -620,7 +628,8 @@ def most_open_strategy(board):
             best_move = move
     return best_move
 
-def free_strategy(board):
+def free_strategy(state):
+    board = state.board
     bestcount = -1
     bestmove = tron.NORTH
     for dir in board.moves():
@@ -640,26 +649,15 @@ random.shuffle(ORDER)
 
 def wall_strategy(state):
     board = state.board
-
     decision = board.moves()[0]
-
     for dir in ORDER:
-
-        # where we will end up if we move this way
         dest = board.rel(dir)
-
-        # destination is passable?
         if not board.passable(dest):
             continue
-
-        # positions adjacent to the destination
         adj = board.adjacent(dest)
-
-        # if any wall adjacent to the destination
         if any(board[pos] == tron.WALL for pos in adj):
             decision = dir
             break
-
     return decision
 
 def alphabeta_strategy(state):
@@ -765,7 +763,7 @@ class Environment():
 
     def elapsed(self):
         return time.time() - self.start_time
-            
+
     def record_time(self):
         elapsed = self.elapsed()
         self.times.append(elapsed)
