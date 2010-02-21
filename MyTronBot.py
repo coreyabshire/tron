@@ -5,7 +5,7 @@
 from collections import deque
 import random, math, numpy
 import optparse, logging, time, cProfile, sys
-import search, games, utils
+import games, utils
 import dijkstra
 import tron
 
@@ -26,7 +26,7 @@ argp = optparse.OptionParser()
 argp.add_option("-d", "--depth", type="int", dest="depth", default=6)
 argp.add_option("-l", "--log", dest="logfile", default=None)
 argp.add_option("-s", "--strategy", default="main")
-argp.add_option("--hurry", type="float", dest="hurry", default=0.01)
+argp.add_option("--hurry", type="float", dest="hurry", default=0.1)
 argp.add_option("--profile", dest="profile", default=None)
 argp.add_option("--time_limit", dest="time_limit", type="int", default=1.0)
 
@@ -643,15 +643,9 @@ def random_strategy(state):
 
 def most_open_strategy(state):
     board = state.board
-    coords = board.me()
-    best_move = tron.NORTH
-    highest = 0
-    for move in board.moves():
-        next = try_move(board, tron.ME, move)
-        count = count_around(next, board.rel(move, coords))
-        if count >= highest:
-            highest = count
-            best_move = move
+    p1, p2, t = state._count_around
+    best_move = utils.argmax(p1.keys(), lambda k: p1[k])
+    logging.debug("most open move is: %s (%d) %s", best_move, p1[best_move], p1)
     return best_move
 
 def free_strategy(state):
@@ -854,7 +848,7 @@ def main_strategy(state):
             logging.debug('using close call')
             my_move = closecall_strategy(state)
     else:
-        my_move = disconnected_strategy(state)
+        my_move = most_open_strategy(state)
 
     return my_move
 
