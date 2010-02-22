@@ -23,7 +23,7 @@ DIR_ABBRS = dict(zip(DIR_NAMES.keys(), [s[0] for s in DIR_NAMES.values()]))
 #
 
 argp = optparse.OptionParser()
-argp.add_option("-d", "--depth", type="int", dest="depth", default=6)
+argp.add_option("-d", "--depth", type="int", dest="depth", default=12)
 argp.add_option("-l", "--log", dest="logfile", default=None)
 argp.add_option("-s", "--strategy", default="main")
 argp.add_option("--hurry", type="float", dest="hurry", default=0.1)
@@ -644,7 +644,12 @@ def random_strategy(state):
 def most_open_strategy(state):
     board = state.board
     p1, p2, t = state._count_around
-    best_move = utils.argmax(p1.keys(), lambda k: p1[k])
+    wall_move = wall_strategy(state)
+    open_move = utils.argmax(p1.keys(), lambda k: p1[k])
+    if p1[wall_move] == p1[open_move]:
+        best_move = wall_move
+    else:
+        best_move = open_move
     logging.debug("most open move is: %s (%d) %s", best_move, p1[best_move], p1)
     return best_move
 
@@ -840,13 +845,13 @@ def main_strategy(state):
     # in some cases we will be asked to move when there is no
     # move available: it doesn't matter, just return NORTH
     if env.connected:
-        if env.cdist > 3 and env.mfm:
-            logging.debug('using cached path')
-            my_move = env.mfm.popleft()
+        if env.cdist > 6:
+            logging.debug('using most open')
+            my_move = most_open_strategy(state)
         else:
             # determine which move I should make
             logging.debug('using close call')
-            my_move = closecall_strategy(state)
+            my_move = alphabeta_strategy(state)
     else:
         my_move = most_open_strategy(state)
 
