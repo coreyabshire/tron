@@ -23,12 +23,13 @@ DIR_ABBRS = dict(zip(DIR_NAMES.keys(), [s[0] for s in DIR_NAMES.values()]))
 #
 
 argp = optparse.OptionParser()
-argp.add_option("-d", "--depth", type="int", dest="depth", default=12)
+argp.add_option("-d", "--depth", type="int", dest="depth", default=8)
 argp.add_option("-l", "--log", dest="logfile", default=None)
 argp.add_option("-s", "--strategy", default="main")
 argp.add_option("--hurry", type="float", dest="hurry", default=0.1)
 argp.add_option("--profile", dest="profile", default=None)
-argp.add_option("--time_limit", dest="time_limit", type="int", default=1.0)
+argp.add_option("--time_limit", dest="time_limit", type="float", default=1.0)
+argp.add_option("--ab_thresh", dest="alphabeta_threshold", type="int", default=4)
 
 #_____________________________________________________________________
 # Board Helper Functions
@@ -217,6 +218,19 @@ def count_around(board, coords, around=adjacent_floor):
     "Count of all spaces around coords."
     return len(points_around(board, coords, around))
 
+def anticipate(board, coords, pattern, num_moves):
+    pos = coords
+    i = 0; j = 0
+    while i < num_moves:
+        pos = board.rel(pattern[j], pos)
+        i += 1
+        j += 1
+        if j >= len(pattern):
+            j = 0
+    return pos
+        
+    
+
 #_____________________________________________________________________
 # AIMA Alpha-Beta Search Interface
 #
@@ -227,12 +241,24 @@ def count_around(board, coords, around=adjacent_floor):
 #       started before and write the test cases against it.
 
 def ab_cutoff(state, depth):
-    need_to_hurry = env.need_to_hurry()
-    if depth > config.depth or game.terminal_test(state) or need_to_hurry:
-        logging.debug('cutoff at depth %d, need to hurry %s', depth, need_to_hurry)
+    too_deep = depth > config.depth
+    game_over = game.terminal_test(state)
+    disconnected = not state.connected()
+    hurry = env.need_to_hurry()
+    cutoff = too_deep or game_over or disconnected or hurry
+    if cutoff:
+        logging.debug('cutoff (%d, %s, %s, %s, %s)', depth, too_deep, \
+                          game_over, disconnected, hurry)
         return True
     else:
         return False
+
+def touching(t):
+    for c in t:
+        p = set(p for p,d in c)
+        if tron.ME in p and tron.THEM in p:
+            return True
+    return False
 
 class TronState():
 
@@ -247,8 +273,11 @@ class TronState():
         self.actual = False
         try:
             self._count_around = dfs_count_around(board)
+            p1, p2, t = self._count_around
+            self._connected = touching(t)
         except KeyError:
             self._count_around = None
+            self._connected = False
 
     def adjacent(self, coords):
         "Find all the moves possible from the current state."
@@ -624,7 +653,9 @@ def same_distance(board, a, b):
     m = distance_map(board, a)
     n = distance_map(board, b)
     keys = set(m.keys()).intersection(set(n.keys()))
-    return [k for k in keys if m[k] == n[k]]
+    same = [k for k in keys if m[k] == n[k]]
+    same.sort(key=lambda k: m[k])
+    return same
 
 #_____________________________________________________________________
 # Strategy Definition
@@ -713,18 +744,11 @@ def heatseeker_strategy(state):
     except KeyError:
         return alphabeta_strategy(state)
 
-def closecall_strategy(state):
+def shortest_path_strategy(state):
     "Get close to the opponent then solve with alphabeta."
     board = state.board
-    try:
-        path = shortest_path(board, board.me(), board.them())
-        n = moves_between(path)
-        if (n <= 3):
-            return alphabeta_strategy(state)
-        else:
-            return move_made(board.me(), path[1])
-    except KeyError:
-        return alphabeta_strategy(state)
+    path = env.cpath
+    return move_made(board.me(), path[1])
 
 def disconnected_strategy(state):
     return wall_strategy(state)
@@ -770,6 +794,7 @@ class Environment():
         self.timed = timed
         self.time_limit = time_limit    # initial time limit
         self.connected = True    # are my opponent and I connected by squares
+        self.same_dist = None    # points that are the same distance (initially)
         
     def update(self, board):
 
@@ -786,6 +811,8 @@ class Environment():
         if self.first_move == True:
             self.walls = find_walls(board)
             self.first_move = False
+            self.same_dist = same_distance(board, board.me(), board.them())
+            self.artpt = articulation_points(board, board.me())
         else:
             self.mmh.append(move_made(self.mph[-2], self.mph[-1]))
             self.emh.append(move_made(self.eph[-2], self.eph[-1]))
@@ -845,12 +872,24 @@ def main_strategy(state):
     # in some cases we will be asked to move when there is no
     # move available: it doesn't matter, just return NORTH
     if env.connected:
-        if env.cdist > 6:
-            logging.debug('using most open')
-            my_move = most_open_strategy(state)
+        if env.cdist > config.alphabeta_threshold:
+            if len(env.same_dist) > 1 and len(env.same_dist) <= 4:
+                logging.debug('targeting first same dist tile')
+                first_point = env.same_dist[0]
+                last_point = env.same_dist[-1]
+                if board.passable(first_point):
+                    path = shortest_path(board, board.me(), first_point)
+                    my_move = move_made(board.me(), path[1])
+                elif board.passable(last_point):
+                    path = shortest_path(board, board.me(), last_point)
+                    my_move = move_made(board.me(), path[1])
+                else:
+                    my_move = most_open_strategy(state)
+            else:
+                logging.debug('using shortest path to opponent')
+                my_move = shortest_path_strategy(state)
         else:
-            # determine which move I should make
-            logging.debug('using close call')
+            logging.debug('using alphabeta')
             my_move = alphabeta_strategy(state)
     else:
         my_move = most_open_strategy(state)
