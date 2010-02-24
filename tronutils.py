@@ -1,4 +1,4 @@
-import tron
+import tron, brandes
 
 #_____________________________________________________________________
 # Constants and Enumerations
@@ -170,4 +170,18 @@ def anticipate(board, coords, pattern, num_moves):
             j = 0
     return pos
 
+
+class Adjacent():
+    "Dictionary for adjacent tiles on a Tron board."
+    def __init__(self, board, test):
+        self.board = board
+        self.test = test
+    def __getitem__(self, coords):
+        return adjacent(self.board, coords, self.test)
+
+def centrality(board):
+    "Compute betweenness centrality for the floor of a Tron board."
+    V = tiles_matching(board, is_floor)
+    A = Adjacent(board, is_floor)
+    return brandes.brandes(V, A)
 
