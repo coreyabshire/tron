@@ -265,6 +265,13 @@ def dfs2(root, A, visited = None, preorder_process = lambda x: None):
             preorder_process(v)
             to_visit.extend(A[v])
 
+def touching(t):
+    for c in t:
+        p = set(p for p,d in c)
+        if tron.ME in p and tron.THEM in p:
+            return True
+    return False
+
 def dfs_count_around(board):
     N = [tron.ME, tron.THEM]
     A = Adjacent(board, is_floor)
@@ -288,7 +295,7 @@ def dfs_count_around(board):
                     if a in remaining:
                         remaining.remove(a)
         T.append(t)
-    return C[0], C[1], T
+    return C[0], C[1], T, touching(T)
 
 def dfs(V,A):
     # see CLRS (2nd) p. 541

@@ -12,13 +12,6 @@ import logging
 #       to modify. Maybe record some scenarios like I
 #       started before and write the test cases against it.
 
-def touching(t):
-    for c in t:
-        p = set(p for p,d in c)
-        if tron.ME in p and tron.THEM in p:
-            return True
-    return False
-
 class TimeAlmostUp():
     pass
 
@@ -35,11 +28,8 @@ class TronState():
         self.actual = False
         try:
             self._count_around = dfs_count_around(board)
-            p1, p2, t = self._count_around
-            self._connected = touching(t)
         except KeyError:
             self._count_around = None
-            self._connected = False
 
     def adjacent(self, coords):
         "Find all the moves possible from the current state."
@@ -63,25 +53,6 @@ class TronState():
         root.last_move = None 
         return root
 
-    def count_around(self, player):
-        "All the open spaces around coords."
-        # http://mail.python.org/pipermail/image-sig/2005-September/003559.html
-        board = self.board
-        count = 0
-        edge = [player]
-        seen = set([player])
-        while edge:
-            newedge = []
-            for tile in edge:
-                for adj in adjacent(board, tile, is_floor):
-                    if adj not in seen:
-                        if board[adj] == tron.FLOOR:
-                            count += 1
-                            seen.add(adj)
-                            newedge.append(adj)
-            edge = newedge
-        return count
-
     def make_move(self, move):
         if move in self._children:
             logging.debug('cache hit on child')
@@ -98,9 +69,6 @@ class TronState():
         child.last_move = move
         return child
 
-    def connected(self):
-        return self._connected
-
     def score(self):
         "Assign a score to this board relative to player."
         if self._score:
@@ -109,7 +77,7 @@ class TronState():
         board, player = self.board, self.to_move
         score = 0.0
         if self._count_around:
-            p1, p2, t = self._count_around
+            p1, p2, t, touching = self._count_around
             if not (p1 or p2):
                 score = -0.5
             elif not p1:
