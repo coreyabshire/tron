@@ -38,6 +38,15 @@ def print_board(board):
     for line in board.board:
         print line
 
+def run_fill(board, move_fn, player=tron.ME, dump=False):
+    path = []
+    while not is_game_over(board):
+        move = move_fn(board)
+        board = try_move(board, player, move)
+        coords = board.me()
+        path.append(coords)
+    return path
+        
 def set_char(s, i, c):
     "Return a copy of s with the character at index i replaced with c."
     return s[:i] + c + s[i+1:]

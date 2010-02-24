@@ -22,20 +22,6 @@ argp.add_option("--time_limit", dest="time_limit", type="float", default=1.0)
 argp.add_option("--ab_thresh", dest="alphabeta_threshold", type="int", default=9)
 
 #_____________________________________________________________________
-# Board Helper Functions
-#
-
-def run_fill(board, move_fn, player=tron.ME, dump=False):
-    path = []
-    while not is_game_over(board):
-        state = TronState.make_root(board, player)
-        move = move_fn(state)
-        board = try_move(board, player, move)
-        coords = board.me()
-        path.append(coords)
-    return path
-        
-#_____________________________________________________________________
 # AIMA Alpha-Beta Search Interface
 #
 
@@ -43,19 +29,6 @@ def run_fill(board, move_fn, player=tron.ME, dump=False):
 #       putting something in place that I constantly have
 #       to modify. Maybe record some scenarios like I
 #       started before and write the test cases against it.
-
-def ab_cutoff(state, depth):
-    too_deep = depth > config.depth
-    game_over = game.terminal_test(state)
-    disconnected = not state.connected()
-    hurry = env.need_to_hurry()
-    cutoff = too_deep or game_over or disconnected or hurry
-    if cutoff:
-        logging.debug('cutoff (%d, %s, %s, %s, %s)', depth, too_deep, \
-                          game_over, disconnected, hurry)
-        return True
-    else:
-        return False
 
 def touching(t):
     for c in t:
@@ -266,7 +239,7 @@ def wall_strategy(board):
             break
     return decision
 
-def alphabeta_strategy(state):
+def alphabeta_strategy(board):
     "Find a move based on an alpha-beta search of the game tree."
     def make_cutoff(max_depth, stats):
         def cutoff(state, depth):
@@ -286,6 +259,7 @@ def alphabeta_strategy(state):
             else:
                 return False
         return cutoff
+    state = TronState.make_root(board, tron.ME)
     best_completed_move = state.board.moves()[0]
     eval_fn = lambda state: state.score()
     try:
@@ -434,10 +408,9 @@ env = Environment()
 # Main Decision Routine
 #
 
-def main_strategy(state):
+def main_strategy(board):
     "Determine which move to make given the current board state."
-    board = state.board
-    
+
     # If we're no longer connected, we do not need to consider
     # the opponents moves at all. Instead, we should just focus
     # on using as much of the board as possible. The best strategy
@@ -452,7 +425,7 @@ def main_strategy(state):
     # of board space.
     if env.cdist <= config.alphabeta_threshold:
         logging.debug('within threshold, so using alphabeta')
-        return alphabeta_strategy(state)
+        return alphabeta_strategy(board)
 
     # If there is a set of a few points that me and my opponent
     # are an equal distance from, then the are probably pretty
@@ -482,15 +455,6 @@ def mainloop():
         # Capture various information about the board that
         # is used in all the strategies. Also, update the common
         # state object to reflect the opponents move.
-        if env.first_move:
-            root = state = TronState.make_root(board, tron.ME)
-            state.actual = True
-        else:
-            their_move = move_made(state.board.them(), board.them())
-            logging.debug('them: %s, %s', state.board.them(), board.them())
-            logging.debug('their move was %s', DIR_NAMES[their_move])
-            state = state.make_move(their_move)
-            state.actual = True
         env.update(board)
 
         # Log the current move number.
@@ -507,12 +471,10 @@ def mainloop():
         # Call the configured strategy to determine the best move.
         # Then update the local state object and log a few details.
         # Finally, submit the move to the engine using the API.
-        my_move = main_strategy(state)
+        my_move = main_strategy(board)
         logging.debug('chose %s', DIR_NAMES[my_move])
         logging.debug("took %0.3f seconds", env.record_time())
-        state = state.make_move(my_move)
-        state.actual = True
-        logging.debug('my new pos: %s', state.board.me())
+        logging.debug('my new pos: %s', board.me())
         tron.move(my_move)
 
 #_____________________________________________________________________
