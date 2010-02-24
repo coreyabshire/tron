@@ -1,6 +1,15 @@
 import tron
 
 #_____________________________________________________________________
+# Constants and Enumerations
+#
+
+DIR_NAMES = { tron.NORTH : 'NORTH', tron.SOUTH : 'SOUTH',
+              tron.EAST  : 'EAST',  tron.WEST  : 'WEST' }
+
+DIR_ABBRS = dict(zip(DIR_NAMES.keys(), [s[0] for s in DIR_NAMES.values()]))
+
+#_____________________________________________________________________
 # Board Helper Functions
 #
 
