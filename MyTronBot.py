@@ -35,37 +35,14 @@ argp.add_option("--ab_thresh", dest="alphabeta_threshold", type="int", default=9
 # Board Helper Functions
 #
 
-def run_fill(board, strategy, player=tron.ME, dump=False):
+def run_fill(board, move_fn, player=tron.ME, dump=False):
     path = []
     while not is_game_over(board):
         state = TronState.make_root(board, player)
-        move = strategy(state)
+        move = move_fn(state)
         board = try_move(board, player, move)
         coords = board.me()
         path.append(coords)
-    return path
-        
-def run_fill_wall(board):
-    ORDER = list(tron.DIRECTIONS)
-    random.shuffle(ORDER)
-    pos = board.me()
-    seen = set([pos])
-    path = [pos]
-    moves = adjacent(board, pos, is_floor)
-    adj = lambda p: [c for c in adjacent(board, p, is_floor) if c not in seen]
-    while moves:
-        decision = move_made(pos, moves[0])
-        for dir in ORDER:
-            dest = board.rel(dir, pos)
-            if not board[dest] == tron.FLOOR and dest not in path:
-                continue
-            if any(board[pos] == tron.WALL for pos in adj(dest)):
-                decision = dir
-                break
-        pos = board.rel(decision, pos)
-        moves = [m for m in adjacent(board, pos, is_floor) if m not in seen]
-        seen.add(pos)
-        path.append(pos)
     return path
         
 def valid_coords(board, (y,x)):
