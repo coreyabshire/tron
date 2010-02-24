@@ -6,7 +6,6 @@ from collections import deque
 import random, math, numpy
 import optparse, logging, time, cProfile, sys
 import games, utils
-import dijkstra
 import tron
 from tronutils import *
 
@@ -17,7 +16,6 @@ from tronutils import *
 argp = optparse.OptionParser()
 argp.add_option("-d", "--depth", type="int", dest="depth", default=8)
 argp.add_option("-l", "--log", dest="logfile", default=None)
-argp.add_option("-s", "--strategy", default="main")
 argp.add_option("--hurry", type="float", dest="hurry", default=0.1)
 argp.add_option("--profile", dest="profile", default=None)
 argp.add_option("--time_limit", dest="time_limit", type="float", default=1.0)
@@ -221,17 +219,15 @@ class TronGame(games.Game):
 # use in interfacing to the AIMA alpha-beta search routine.
 game = TronGame() 
 
-def random_strategy(state):
+def random_strategy(board):
     # For now, choose a legal move randomly.
     # Note that board.moves will produce [NORTH] if there are no
     # legal moves available.
-    board = state.board
     return random.choice(board.moves())
 
-def most_open_strategy(state):
-    board = state.board
-    p1, p2, t = state._count_around
-    wall_move = wall_strategy(state)
+def most_open_strategy(board):
+    p1, p2, t = dfs_count_around(board)
+    wall_move = wall_strategy(board)
     open_move = utils.argmax(p1.keys(), lambda k: p1[k])
     if p1[wall_move] == p1[open_move]:
         best_move = wall_move
@@ -240,8 +236,7 @@ def most_open_strategy(state):
     logging.debug("most open move is: %s (%d) %s", best_move, p1[best_move], p1)
     return best_move
 
-def free_strategy(state):
-    board = state.board
+def free_strategy(board):
     bestcount = -1
     bestmove = tron.NORTH
     for dir in board.moves():
@@ -259,8 +254,7 @@ def free_strategy(state):
 ORDER = list(tron.DIRECTIONS)
 random.shuffle(ORDER)
 
-def wall_strategy(state):
-    board = state.board
+def wall_strategy(board):
     decision = board.moves()[0]
     for dir in ORDER:
         dest = board.rel(dir)
@@ -308,9 +302,8 @@ def alphabeta_strategy(state):
         logging.debug('alphabeta time almost up %s %s', depth_limit, move)
         return best_completed_move
 
-def heatseeker_strategy(state):
+def heatseeker_strategy(board):
     "Use hotspots to identify and find targets."
-    board = state.board
     try:
         me = board.me()
         heat = heat_map(board)
@@ -324,13 +317,12 @@ def heatseeker_strategy(state):
     except KeyError:
         return alphabeta_strategy(state)
 
-def shortest_path_strategy(state):
+def shortest_path_strategy(board):
     "Get close to the opponent then solve with alphabeta."
-    board = state.board
     path = env.cpath
     return move_made(board.me(), path[1])
 
-def same_dist_tiles_strategy(state):
+def same_dist_tiles_strategy(board):
     "Try to draw a line through the same distance tiles."
     first_point = env.same_dist[0]
     last_point = env.same_dist[-1]
@@ -341,10 +333,7 @@ def same_dist_tiles_strategy(state):
         path = shortest_path(board, board.me(), last_point)
         return move_made(board.me(), path[1])
     else:
-        return most_open_strategy(state)
-
-def disconnected_strategy(state):
-    return wall_strategy(state)
+        return most_open_strategy(board)
 
 # TODO: Test case on which_move which tests that index out of
 #       range no longer occurs when we have no move available
@@ -447,6 +436,7 @@ env = Environment()
 
 def main_strategy(state):
     "Determine which move to make given the current board state."
+    board = state.board
     
     # If we're no longer connected, we do not need to consider
     # the opponents moves at all. Instead, we should just focus
@@ -454,7 +444,7 @@ def main_strategy(state):
     # I have for that at the moment is the most open strategy.
     if not env.connected:
         logging.debug('connected, so using most open')
-        return most_open_strategy(state)
+        return most_open_strategy(board)
 
     # If we're close enough that minimax with alpha-beta pruning
     # is practical, then we should use that. It should return the
@@ -472,13 +462,13 @@ def main_strategy(state):
     # (I still have concerns about this one. Needs work.)
     if len(env.same_dist) > 1 and len(env.same_dist) <= 4:
         logging.debug('targeting first same dist tile')
-        return same_dist_tiles_strategy(state)
+        return same_dist_tiles_strategy(board)
 
     # If all else fails, lets just charge the opponent by taking
     # the shortest path to them and try to let the minimax with
     # alpha-beta pruning get us a victory.
     logging.debug('using shortest path to opponent')
-    return shortest_path_strategy(state)
+    return shortest_path_strategy(board)
 
 def enable_logging(logfile, level=logging.DEBUG):
     "Enable logging to the specified logfile."
@@ -517,7 +507,7 @@ def mainloop():
         # Call the configured strategy to determine the best move.
         # Then update the local state object and log a few details.
         # Finally, submit the move to the engine using the API.
-        my_move = which_move(state)
+        my_move = main_strategy(state)
         logging.debug('chose %s', DIR_NAMES[my_move])
         logging.debug("took %0.3f seconds", env.record_time())
         state = state.make_move(my_move)
@@ -552,7 +542,6 @@ if __name__ == "__main__":
     if config.logfile:
         enable_logging(config.logfile)
     logging.debug('config: %s', config)
-    which_move = globals()['%s_strategy' % config.strategy]
     env.time_limit = config.time_limit
     if config.profile:
         cProfile.run('mainloop()', config.profile)
