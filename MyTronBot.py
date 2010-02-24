@@ -7,7 +7,8 @@ import random, math, numpy
 import optparse, logging, time, cProfile, sys
 import games, utils
 import dijkstra
-import tron, tronutils
+import tron
+from tronutils import *
 
 #_____________________________________________________________________
 # Constants and Enumerations
@@ -45,137 +46,6 @@ def run_fill(board, move_fn, player=tron.ME, dump=False):
         path.append(coords)
     return path
         
-def valid_coords(board, (y,x)):
-    "Are the coordinates within the board dimensions?"
-    return 0 <= y < board.height and 0 <= x < board.width
-
-def tile_is_a(kind_of):
-    "Return a tile matcher that checks if the tile at coords is kind_of."
-    def fn(board, coords):
-        if valid_coords(board, coords):
-            return board[coords] == kind_of
-    return fn
-
-def invert(fn):
-    return lambda *args: not fn(*args)
-
-is_wall = tile_is_a(tron.WALL)
-is_floor = tile_is_a(tron.FLOOR)
-is_nonwall = invert(tile_is_a(tron.WALL))
-
-adjacent_floor = lambda board, coords: adjacent(board, coords, is_floor)
-
-def tiles_matching(board, fn):
-    "Collect all tiles on the board matching fn."
-    tiles = []
-    for y in xrange(board.height):
-        for x in xrange(board.width):
-            if fn(board, (y,x)):
-                tiles.append((y,x))
-    return tiles
-
-def adjacent(board, coords, fn):
-    "Find all tiles on board adjacent to coords matching fn."
-    return [a for a in board.adjacent(coords) if fn(board, a)]
-
-def surrounding_offset_array():
-    z = [-1, 0, 1]
-    return [(s,t) for t in z for s in z]
-
-SOA = surrounding_offset_array()
-
-def offset((y,x), (t,s)):
-    return (y+t, x+s)
-
-def surrounding_nonfloor(board, origin):
-    a = [offset(origin, o) for o in SOA]
-    return [c for c in a if board[c] != tron.FLOOR]
-
-def move_made((y1,x1),(y2,x2)):
-    "Return the move needed to get from a to b. Assumes adjacency."
-    if   y2 < y1: return tron.NORTH
-    elif y2 > y1: return tron.SOUTH
-    elif x2 > x1: return tron.EAST
-    else        : return tron.WEST
-
-def distance((y1,x1),(y2,x2)):
-    return abs(x2-x1) + abs(y2-y1)
-    
-def is_game_over(board):
-    "Determine whether this board is at an end game state."
-    try:
-        return not adjacent(board, board.me(), is_floor) \
-            or not adjacent(board, board.them(), is_floor)
-    except KeyError:
-        return True # one player disappears if they crash into each other
-
-def win_lose_or_draw(board, player):
-    "Did player on board is a win (1), lose (-1), or draw (-0.5)."
-    try:
-        me = board.me()
-        them = board.them()
-    except KeyError:
-        return -0.5 # one player disappears if they crash into each other
-    me_stuck = not adjacent(board, me, is_floor)
-    them_stuck = not adjacent(board, them, is_floor)
-    if me_stuck and them_stuck:
-        return -0.5
-    elif me_stuck or them_stuck:
-        if player == tron.ME:
-            return me_stuck and -1 or 1
-        else:
-            return me_stuck and 1 or -1
-    else:
-        return -0.5
-
-def try_move(board, p, d):
-    "Create a copy of board where player p is moved in direction d."
-    lines = [line for line in board.board] # shallow copy
-    (y1,x1) = board.find(p)
-    (y2,x2) = board.rel(d, (y1,x1))
-    lines[y1] = tronutils.set_char(lines[y1], x1, tron.WALL)
-    lines[y2] = tronutils.set_char(lines[y2], x2, p)
-    return tron.Board(board.width, board.height, lines)
-
-def opponent(player):
-    "Determine the opposite player."
-    if player == tron.ME:
-        return tron.THEM
-    else:
-        return tron.ME
-
-def points_around(board, coords, around=adjacent_floor):
-    "All the open spaces around coords."
-    # http://mail.python.org/pipermail/image-sig/2005-September/003559.html
-    count = 0
-    edge = [coords]
-    seen = set()
-    while edge:
-        newedge = []
-        for tile in edge:
-            for adj in around(board, tile):
-                if adj not in seen:
-                    count += 1
-                    seen.add(adj)
-                    newedge.append(adj)
-        edge = newedge
-    return seen
-
-def count_around(board, coords, around=adjacent_floor):
-    "Count of all spaces around coords."
-    return len(points_around(board, coords, around))
-
-def anticipate(board, coords, pattern, num_moves):
-    pos = coords
-    i = 0; j = 0
-    while i < num_moves:
-        pos = board.rel(pattern[j], pos)
-        i += 1
-        j += 1
-        if j >= len(pattern):
-            j = 0
-    return pos
-
 #_____________________________________________________________________
 # AIMA Alpha-Beta Search Interface
 #
