@@ -29,7 +29,7 @@ argp.add_option("-s", "--strategy", default="main")
 argp.add_option("--hurry", type="float", dest="hurry", default=0.1)
 argp.add_option("--profile", dest="profile", default=None)
 argp.add_option("--time_limit", dest="time_limit", type="float", default=1.0)
-argp.add_option("--ab_thresh", dest="alphabeta_threshold", type="int", default=4)
+argp.add_option("--ab_thresh", dest="alphabeta_threshold", type="int", default=9)
 
 #_____________________________________________________________________
 # Board Helper Functions
@@ -259,6 +259,9 @@ def touching(t):
         if tron.ME in p and tron.THEM in p:
             return True
     return False
+
+class TimeAlmostUp():
+    pass
 
 class TronState():
 
@@ -718,15 +721,39 @@ def wall_strategy(state):
 
 def alphabeta_strategy(state):
     "Find a move based on an alpha-beta search of the game tree."
-    stats = utils.Struct(nodes=0, max_depth=0)
-    def cutoff(state, depth):
-        stats.nodes += 1
-        stats.max_depth = max(stats.max_depth, depth)
-        return ab_cutoff(state, depth)
+    def make_cutoff(max_depth, stats):
+        def cutoff(state, depth):
+            if env.need_to_hurry():
+                raise TimeAlmostUp()
+            too_deep = depth > max_depth
+            game_over = game.terminal_test(state)
+            disconnected = not state.connected()
+            should_cutoff = too_deep or game_over# or disconnected
+            stats.nodes += 1
+            logging.debug('max_depth: %s, %d, %d', stats, stats.max_depth, depth)
+            stats.max_depth = max(stats.max_depth, depth)
+            if should_cutoff:
+                logging.debug('cutoff (%d, %s, %s, %s)', depth, too_deep, \
+                                  game_over, disconnected)
+                return True
+            else:
+                return False
+        return cutoff
+    best_completed_move = state.board.moves()[0]
     eval_fn = lambda state: state.score()
-    d = games.alphabeta_search(state, game, cutoff_test=cutoff, eval_fn=eval_fn)
-    logging.debug('alphabeta %s (%s)', d, stats)
-    return d
+    try:
+        for depth_limit in xrange(sys.maxint):
+            stats = utils.Struct(nodes=0, max_depth=0, hurried=False)
+            cut_fn = make_cutoff(depth_limit, stats)
+            move = games.alphabeta_search(state, game, cutoff_test=cut_fn, eval_fn=eval_fn)
+            logging.debug('alphabeta %s %s (%s)', depth_limit, move, stats)
+            if stats.nodes <= 2:
+                return move
+            else:
+                best_completed_move = move
+    except TimeAlmostUp:
+        logging.debug('alphabeta time almost up %s %s', depth_limit, move)
+        return best_completed_move
 
 def heatseeker_strategy(state):
     "Use hotspots to identify and find targets."
