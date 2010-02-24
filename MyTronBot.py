@@ -14,12 +14,11 @@ from tronmoves import *
 #
 
 argp = optparse.OptionParser()
-argp.add_option("-d", "--depth", type="int", dest="depth", default=8)
 argp.add_option("-l", "--log", dest="logfile", default=None)
-argp.add_option("--hurry", type="float", dest="hurry", default=0.1)
+argp.add_option("--hurry", type="float", dest="hurry", default=0.05)
 argp.add_option("--profile", dest="profile", default=None)
 argp.add_option("--time_limit", dest="time_limit", type="float", default=1.0)
-argp.add_option("--ab_thresh", dest="alphabeta_threshold", type="int", default=9)
+argp.add_option("--ab_thresh", dest="ab_thresh", type="int", default=12)
 
 # TODO: Test case on which_move which tests that index out of
 #       range no longer occurs when we have no move available
@@ -66,7 +65,7 @@ def which_move(board, start_time, order, same_dist):
     # is practical, then we should use that. It should return the
     # absolute best move if it can see far enough ahead in terms
     # of board space.
-    if moves_between(path_to_them) <= config.alphabeta_threshold:
+    if moves_between(path_to_them) <= config.ab_thresh:
         finish_by = start_time + config.time_limit - config.hurry
         logging.debug('within threshold, so using alphabeta')
         return minimax_move(board, finish_by)
@@ -77,7 +76,7 @@ def which_move(board, start_time, order, same_dist):
     # As such, go target those points. Once those points have
     # been achieved, just try to fill in the remaining space.
     # (I still have concerns about this one. Needs work.)
-    if len(same_dist) > 1 and len(same_dist) <= 4:
+    if len(same_dist) >= 1 and len(same_dist) <= 5:
         logging.debug('targeting first same dist tile')
         return same_dist_move(board, same_dist, order)
 

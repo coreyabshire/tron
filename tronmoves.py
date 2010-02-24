@@ -56,45 +56,9 @@ def follow_wall_move(board, order):
             break
     return decision
 
-# Create a single instance of the game implementation to
-# use in interfacing to the AIMA alpha-beta search routine.
-game = TronGame() 
-
 def minimax_move(board, finish_by=None):
     "Find a move based on an alpha-beta search of the game tree."
-    
-    def make_cutoff(max_depth, stats):
-        def cutoff(state, depth):
-            if finish_by and time.time() >= finish_by:
-                raise TimeAlmostUp()
-            too_deep = depth > max_depth
-            game_over = game.terminal_test(state)
-            should_cutoff = too_deep or game_over
-            stats.nodes += 1
-            logging.debug('max_depth: %s, %d, %d', stats, stats.max_depth, depth)
-            stats.max_depth = max(stats.max_depth, depth)
-            if should_cutoff:
-                logging.debug('cutoff (%d, %s, %s)', depth, too_deep, game_over)
-                return True
-            else:
-                return False
-        return cutoff
-    state = TronState.make_root(board, tron.ME)
-    best_completed_move = state.board.moves()[0]
-    eval_fn = lambda state: state.score()
-    try:
-        for depth_limit in xrange(sys.maxint):
-            stats = utils.Struct(nodes=0, max_depth=0, hurried=False)
-            cut_fn = make_cutoff(depth_limit, stats)
-            move = games.alphabeta_search(state, game, cutoff_test=cut_fn, eval_fn=eval_fn)
-            logging.debug('alphabeta %s %s (%s)', depth_limit, move, stats)
-            if stats.nodes <= 2:
-                return move
-            else:
-                best_completed_move = move
-    except TimeAlmostUp:
-        logging.debug('alphabeta time almost up %s %s', depth_limit, move)
-        return best_completed_move
+    return alphabeta_search(board, finish_by)
 
 def hotspot_move(board):
     "Find the move that targets the next hot spot."

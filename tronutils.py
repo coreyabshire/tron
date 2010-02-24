@@ -231,6 +231,10 @@ def moves_between(path):
     "Number of moves it would take for two players to traverse the path."
     return len(path) - 2
 
+#_____________________________________________________________________
+# Depth First Search
+#
+
 def articulation_points(board, root):
     sys.setrecursionlimit(2500)
     V = set(); A = Adjacent(board, is_floor)

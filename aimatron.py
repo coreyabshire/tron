@@ -1,7 +1,7 @@
+import logging, time
 import games, utils
 import tron
 from tronutils import *
-import logging
 
 #_____________________________________________________________________
 # AIMA Alpha-Beta Search Interface
@@ -25,7 +25,6 @@ class TronState():
         self._children = {}
         self._available = None
         self._adjacent = {}
-        self.actual = False
         try:
             self._count_around = dfs_count_around(board)
         except KeyError:
@@ -69,37 +68,6 @@ class TronState():
         child.last_move = move
         return child
 
-    def score(self):
-        "Assign a score to this board relative to player."
-        if self._score:
-            logging.debug('cache hit on score: %0.2f', self._score)
-            return self._score
-        board, player = self.board, self.to_move
-        score = 0.0
-        if self._count_around:
-            p1, p2, t, touching = self._count_around
-            if not (p1 or p2):
-                score = -0.5
-            elif not p1:
-                score = -1.0
-            elif not p2:
-                score = 1.0
-            else:
-                m1, m2 = max(p1.values()), max(p2.values())
-                total = m1 + m2
-                if total == 0.0:
-                    score = -0.5
-                else: 
-                    score = float(m1) / float(total) * 2.0 - 1.0
-        else:
-            score = -0.5 # one of the players disappears if they crash
-
-        logging.debug('score %0.2f; %s', score, self.list_moves())
-        for line in board.board:
-            logging.debug(line)
-        self._score = score
-        return score
-
     def list_moves(self):
         state = self
         moves = []
@@ -134,3 +102,72 @@ class TronGame(games.Game):
         "Print the board to the console."
         print_board(state.board)
 
+def eval_fn(state):
+    "Assign a score to this board relative to player."
+    if state._score:
+        logging.debug('cache hit on score: %0.2f', state._score)
+        return state._score
+    board, player = state.board, state.to_move
+    score = 0.0
+    if state._count_around:
+        p1, p2, t, touching = state._count_around
+        if not (p1 or p2):
+            score = -0.5
+        elif not p1:
+            score = -1.0
+        elif not p2:
+            score = 1.0
+        else:
+            m1, m2 = max(p1.values()), max(p2.values())
+            total = m1 + m2
+            if total == 0.0:
+                score = -0.5
+            else: 
+                score = float(m1) / float(total) * 2.0 - 1.0
+    else:
+        score = -0.5 # one of the players disappears if they crash
+
+    logging.debug('score %0.2f; %s', score, state.list_moves())
+    for line in board.board:
+        logging.debug(line)
+    state._score = score
+    return score
+
+
+def make_cutoff_fn(max_depth, stats, finish_by):
+    "Create a cutoff function based on the given parameters."
+    
+    def cutoff_fn(state, depth):
+        "Determine whether to cutoff the search."
+        if finish_by and time.time() >= finish_by:
+            raise TimeAlmostUp()
+        stats.nodes += 1
+        stats.max_depth = max(stats.max_depth, depth)
+        if depth > max_depth or game.terminal_test(state):
+            return True
+        else:
+            return False
+        
+    return cutoff_fn
+
+# Create a single instance of the game implementation to
+# use in interfacing to the AIMA alpha-beta search routine.
+game = TronGame() 
+
+def alphabeta_search(board, finish_by=None):
+    "Find a move based on an alpha-beta search of the game tree."
+    best_completed_move = board.moves()[0]
+    state = TronState.make_root(board, tron.ME)
+    try:
+        for depth_limit in xrange(sys.maxint):
+            stats = utils.Struct(nodes=0, max_depth=0)
+            cutoff_fn = make_cutoff_fn(depth_limit, stats, finish_by)
+            move = games.alphabeta_search(state, game, None, cutoff_fn, eval_fn)
+            logging.debug('alphabeta %s %s (%s)', depth_limit, move, stats)
+            if stats.nodes <= 2:
+                return move
+            else:
+                best_completed_move = move
+    except TimeAlmostUp:
+        logging.debug('alphabeta time almost up %s %s', depth_limit, move)
+        return best_completed_move
