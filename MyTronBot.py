@@ -5,7 +5,6 @@
 from collections import deque
 import random, math, numpy
 import optparse, logging, time, cProfile, sys
-import games, utils
 import tron
 from tronutils import *
 from tronmoves import *
@@ -55,9 +54,6 @@ def which_move(board, start_time, order, same_dist):
     except KeyError:
         path_to_them = None
 
-    # Calculate the points that are the same distance between me
-    # and them. 
-            
     # If we're no longer connected, we do not need to consider
     # the opponents moves at all. Instead, we should just focus
     # on using as much of the board as possible. The best strategy
@@ -66,7 +62,7 @@ def which_move(board, start_time, order, same_dist):
         logging.debug('not connected, so using most open')
         return most_open_move(board, order)
 
-    # If we're close enough that minimax with alpha-beta pruning
+    # If we're close enough that minimax (with alpha-beta pruning)
     # is practical, then we should use that. It should return the
     # absolute best move if it can see far enough ahead in terms
     # of board space.
@@ -99,14 +95,16 @@ def mainloop():
 
     order = list(tron.DIRECTIONS)
     random.shuffle(order)
-    nmoves = 0
+    nmoves = 1
     first_move = True
 
     # Start looping through all the boards, just like in the example.
     for board in tron.Board.generate():
 
+        # Record exactly when we read the board to calculate time remaining.
         start_time = time.time()
 
+        # Some statistics we need are only available on the first move.
         if first_move:
             same_dist = same_distance(board, board.me(), board.them())
             first_move = False
