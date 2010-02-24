@@ -896,32 +896,46 @@ def main_strategy(state):
         for i in xrange(env.cdist):
             env.mfm.append(move_made(env.cpath[i], env.cpath[i+1]))
 
-    # in some cases we will be asked to move when there is no
-    # move available: it doesn't matter, just return NORTH
-    if env.connected:
-        if env.cdist > config.alphabeta_threshold:
-            if len(env.same_dist) > 1 and len(env.same_dist) <= 4:
-                logging.debug('targeting first same dist tile')
-                first_point = env.same_dist[0]
-                last_point = env.same_dist[-1]
-                if board.passable(first_point):
-                    path = shortest_path(board, board.me(), first_point)
-                    my_move = move_made(board.me(), path[1])
-                elif board.passable(last_point):
-                    path = shortest_path(board, board.me(), last_point)
-                    my_move = move_made(board.me(), path[1])
-                else:
-                    my_move = most_open_strategy(state)
-            else:
-                logging.debug('using shortest path to opponent')
-                my_move = shortest_path_strategy(state)
-        else:
-            logging.debug('using alphabeta')
-            my_move = alphabeta_strategy(state)
-    else:
-        my_move = most_open_strategy(state)
+    # If we're no longer connected, we do not need to consider
+    # the opponents moves at all. Instead, we should just focus
+    # on using as much of the board as possible. The best strategy
+    # I have for that at the moment is the most open strategy.
+    if not env.connected:
+        logging.debug('connected, so using most open')
+        return most_open_strategy(state)
 
-    return my_move
+    # If we're close enough that minimax with alpha-beta pruning
+    # is practical, then we should use that. It should return the
+    # absolute best move if it can see far enough ahead in terms
+    # of board space.
+    if env.cdist <= config.alphabeta_threshold:
+        logging.debug('within threshold, so using alphabeta')
+        return alphabeta_strategy(state)
+
+    # If there is a set of a few points that me and my opponent
+    # are an equal distance from, then the are probably pretty
+    # important on the board (such as for 'u' and for 'joust').
+    # As such, go target those points. Once those points have
+    # been achieved, just try to fill in the remaining space.
+    # (I still have concerns about this one. Needs work.)
+    if len(env.same_dist) > 1 and len(env.same_dist) <= 4:
+        logging.debug('targeting first same dist tile')
+        first_point = env.same_dist[0]
+        last_point = env.same_dist[-1]
+        if board.passable(first_point):
+            path = shortest_path(board, board.me(), first_point)
+            return move_made(board.me(), path[1])
+        elif board.passable(last_point):
+            path = shortest_path(board, board.me(), last_point)
+            return move_made(board.me(), path[1])
+        else:
+            return most_open_strategy(state)
+
+    # If all else fails, lets just charge the opponent by taking
+    # the shortest path to them and try to let the minimax with
+    # alpha-beta pruning get us a victory.
+    logging.debug('using shortest path to opponent')
+    return shortest_path_strategy(state)
 
 def enable_logging(logfile, level=logging.DEBUG):
     "Enable logging to the specified logfile."
