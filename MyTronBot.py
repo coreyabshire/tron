@@ -777,6 +777,19 @@ def shortest_path_strategy(state):
     path = env.cpath
     return move_made(board.me(), path[1])
 
+def same_dist_tiles_strategy(state):
+    "Try to draw a line through the same distance tiles."
+    first_point = env.same_dist[0]
+    last_point = env.same_dist[-1]
+    if board.passable(first_point):
+        path = shortest_path(board, board.me(), first_point)
+        return move_made(board.me(), path[1])
+    elif board.passable(last_point):
+        path = shortest_path(board, board.me(), last_point)
+        return move_made(board.me(), path[1])
+    else:
+        return most_open_strategy(state)
+
 def disconnected_strategy(state):
     return wall_strategy(state)
 
@@ -881,21 +894,7 @@ env = Environment()
 
 def main_strategy(state):
     "Determine which move to make given the current board state."
-    board = state.board
     
-    # fill in your code here. it must return one of the following directions:
-    #   tron.NORTH, tron.EAST, tron.SOUTH, tron.WEST
-
-    # record history and other facts about the board for use throughout
-
-    # calculate future moves
-    if env.mfm:
-        if not board.passable(board.rel(env.mfm[0], board.me())):
-            env.mfm = deque()
-    if not env.mfm and env.cpath:
-        for i in xrange(env.cdist):
-            env.mfm.append(move_made(env.cpath[i], env.cpath[i+1]))
-
     # If we're no longer connected, we do not need to consider
     # the opponents moves at all. Instead, we should just focus
     # on using as much of the board as possible. The best strategy
@@ -920,16 +919,7 @@ def main_strategy(state):
     # (I still have concerns about this one. Needs work.)
     if len(env.same_dist) > 1 and len(env.same_dist) <= 4:
         logging.debug('targeting first same dist tile')
-        first_point = env.same_dist[0]
-        last_point = env.same_dist[-1]
-        if board.passable(first_point):
-            path = shortest_path(board, board.me(), first_point)
-            return move_made(board.me(), path[1])
-        elif board.passable(last_point):
-            path = shortest_path(board, board.me(), last_point)
-            return move_made(board.me(), path[1])
-        else:
-            return most_open_strategy(state)
+        return same_dist_tiles_strategy(state)
 
     # If all else fails, lets just charge the opponent by taking
     # the shortest path to them and try to let the minimax with
