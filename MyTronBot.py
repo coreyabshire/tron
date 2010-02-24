@@ -44,13 +44,15 @@ def read_board(filename):
     return tron.Board(width, height, board)
 
 def write_board(board, filename):
+    "Write the given board out to a file in the same format as the maps."
     f = open(filename, 'w')
     f.write('%d %d\n' % (board.width, board.height))
     for line in board.board:
         f.write('%s\n' % line)
     f.close()
 
-def print_board(board, filename):
+def print_board(board):
+    "Print the board to standard out in the same format as the maps."
     print board.width, board.height
     for line in board.board:
         print line
@@ -87,7 +89,6 @@ def run_fill_wall(board):
         seen.add(pos)
         path.append(pos)
     return path
-
         
 def valid_coords(board, (y,x)):
     "Are the coordinates within the board dimensions?"
@@ -159,7 +160,7 @@ def print_board(board):
     print '\n'.join(board.board)
 
 def win_lose_or_draw(board, player):
-    "Did player on board is a win (1), lose (-1), or draw (0.0)."
+    "Did player on board is a win (1), lose (-1), or draw (-0.5)."
     try:
         me = board.me()
         them = board.them()
@@ -228,8 +229,6 @@ def anticipate(board, coords, pattern, num_moves):
         if j >= len(pattern):
             j = 0
     return pos
-        
-    
 
 #_____________________________________________________________________
 # AIMA Alpha-Beta Search Interface
@@ -361,7 +360,7 @@ class TronState():
                 m1, m2 = max(p1.values()), max(p2.values())
                 total = m1 + m2
                 if total == 0.0:
-                    score = 0.0
+                    score = -0.5
                 else: 
                     score = float(m1) / float(total) * 2.0 - 1.0
         else:
@@ -932,8 +931,13 @@ def enable_logging(logfile, level=logging.DEBUG):
     logging.basicConfig(filename=logfile, level=level, filemode='w')
 
 def mainloop():
-    root = state = None
+
+    # Start looping through all the boards, just like in the example.
     for board in tron.Board.generate():
+
+        # Capture various information about the board that
+        # is used in all the strategies. Also, update the common
+        # state object to reflect the opponents move.
         if env.first_move:
             root = state = TronState.make_root(board, tron.ME)
             state.actual = True
@@ -944,13 +948,22 @@ def mainloop():
             state = state.make_move(their_move)
             state.actual = True
         env.update(board)
+
+        # Log the current move number.
         logging.debug('move %d', env.nmoves)
-        my_move = tron.NORTH # default if no moves available
-        if adjacent_floor(board, board.me()):
-            my_move = which_move(state)
-        else:
-            logging.debug('no legal moves remaining')
-            logging.debug('bypassing strategy')
+
+        # If I don't have any legal moves, its not even worth trying
+        # one of the other strategies. This is done here to support
+        # calling the other strategies from the command line.
+        if not adjacent_floor(board, board.me()):
+            logging.debug('no legal moves remaining; bypassign strategy')
+            tron.move(tron.NORTH)
+            continue
+
+        # Call the configured strategy to determine the best move.
+        # Then update the local state object and log a few details.
+        # Finally, submit the move to the engine using the API.
+        my_move = which_move(state)
         logging.debug('chose %s', DIR_NAMES[my_move])
         logging.debug("took %0.3f seconds", env.record_time())
         state = state.make_move(my_move)
@@ -958,6 +971,28 @@ def mainloop():
         logging.debug('my new pos: %s', state.board.me())
         tron.move(my_move)
 
+#_____________________________________________________________________
+# Main Block
+#
+# This is the main startup section for MyTronBot.
+#
+# It supports the following use cases:
+#        
+#  1. Running from the server with no arguments
+#     using whatever strategy and configuration I
+#     have determine is the best I have.
+#
+#  2. Running from my local command line, accepting
+#     various arguments I can use to tweak, test,
+#     and analyze its performance.
+#
+#  3. Being imported from the python shell as a
+#     library so that I can interact with the logic
+#     in real-time to inspect and to support development.
+#
+#  4. Being imported as a library from another script
+#     to support unit testing or visualization.
+#
 if __name__ == "__main__":
     config, args = argp.parse_args()
     if config.logfile:
@@ -969,6 +1004,7 @@ if __name__ == "__main__":
         cProfile.run('mainloop()', config.profile)
     else:
         mainloop()
+
 else:
     # Most common case for starting as a library
     # is for an online session from the interpreter
