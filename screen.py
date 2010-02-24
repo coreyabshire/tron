@@ -1,4 +1,4 @@
-import os, sys, tron, MyTronBot
+import os, sys, tron, tronutils
 from Tkinter import *
 
 colors = { "#": "gray",
@@ -127,7 +127,7 @@ class TronGridEditor(TronGrid):
         board = self.board.board
         x = int(canvas.canvasx(event.x) / self.cellsize)
         y = int(canvas.canvasy(event.y) / self.cellsize)
-        board[y] = MyTronBot.set_char(board[y], x, self.char)
+        board[y] = tronutils.set_char(board[y], x, self.char)
         self[y,x] = self.colors[self.char]
 
     def change_brush(self, event):
@@ -145,9 +145,9 @@ def edit_board(board, squaresize=15):
 def derive_case(infile, outfile, squaresize=15):
     root = Tk()
     root.bind("<Escape>", lambda e: done())
-    board = MyTronBot.read_board(infile)
+    board = tronutils.read_board(infile)
     def done():
-        MyTronBot.write_board(board, outfile)
+        tronutils.write_board(board, outfile)
         root.destroy()
     grid = TronGridEditor(root, board, squaresize, colors)
     grid.draw(board)
@@ -164,7 +164,7 @@ def show_board(board, squaresize=15, title='My Map'):
     mainloop()
 
 def show_map(filename, squaresize=15):
-    board = MyTronBot.read_board(filename)
+    board = tronutils.read_board(filename)
     show_board(board, squaresize, filename)
 
 def show_path(board, path, fill='yellow', line_color='black'):

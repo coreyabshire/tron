@@ -7,7 +7,7 @@ import random, math, numpy
 import optparse, logging, time, cProfile, sys
 import games, utils
 import dijkstra
-import tron
+import tron, tronutils
 
 #_____________________________________________________________________
 # Constants and Enumerations
@@ -34,28 +34,6 @@ argp.add_option("--ab_thresh", dest="alphabeta_threshold", type="int", default=9
 #_____________________________________________________________________
 # Board Helper Functions
 #
-
-def read_board(filename):
-    "Read a board from a map file."
-    f = open(filename)
-    width,height = [int(s) for s in f.readline().strip().split()]
-    board = [s[:width] for s in f.readlines()]
-    f.close()
-    return tron.Board(width, height, board)
-
-def write_board(board, filename):
-    "Write the given board out to a file in the same format as the maps."
-    f = open(filename, 'w')
-    f.write('%d %d\n' % (board.width, board.height))
-    for line in board.board:
-        f.write('%s\n' % line)
-    f.close()
-
-def print_board(board):
-    "Print the board to standard out in the same format as the maps."
-    print board.width, board.height
-    for line in board.board:
-        print line
 
 def run_fill(board, strategy, player=tron.ME, dump=False):
     path = []
@@ -154,11 +132,6 @@ def is_game_over(board):
     except KeyError:
         return True # one player disappears if they crash into each other
 
-def print_board(board):
-    "Print the board just like the engine does to stdout."
-    print board.height, board.width
-    print '\n'.join(board.board)
-
 def win_lose_or_draw(board, player):
     "Did player on board is a win (1), lose (-1), or draw (-0.5)."
     try:
@@ -178,17 +151,13 @@ def win_lose_or_draw(board, player):
     else:
         return -0.5
 
-def set_char(s, i, c):
-    "Return a copy of s with the character at index i replaced with c."
-    return s[:i] + c + s[i+1:]
-    
 def try_move(board, p, d):
     "Create a copy of board where player p is moved in direction d."
     lines = [line for line in board.board] # shallow copy
     (y1,x1) = board.find(p)
     (y2,x2) = board.rel(d, (y1,x1))
-    lines[y1] = set_char(lines[y1], x1, tron.WALL)
-    lines[y2] = set_char(lines[y2], x2, p)
+    lines[y1] = tronutils.set_char(lines[y1], x1, tron.WALL)
+    lines[y2] = tronutils.set_char(lines[y2], x2, p)
     return tron.Board(board.width, board.height, lines)
 
 def opponent(player):
