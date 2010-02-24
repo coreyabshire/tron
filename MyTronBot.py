@@ -192,15 +192,18 @@ class TronGame(games.Game):
 # use in interfacing to the AIMA alpha-beta search routine.
 game = TronGame() 
 
-def random_strategy(board):
-    # For now, choose a legal move randomly.
-    # Note that board.moves will produce [NORTH] if there are no
-    # legal moves available.
+def surrender_move(board):
+    "Return a constant move in order to surrender."
+    return tron.NORTH
+
+def random_move(board):
+    "Just return any random legal move."
     return random.choice(board.moves())
 
-def most_open_strategy(board):
+def most_open_move(board, order):
+    "Find the move that has the most open floor filled around it."
     p1, p2, t = dfs_count_around(board)
-    wall_move = wall_strategy(board)
+    wall_move = follow_wall_move(board, order)
     open_move = utils.argmax(p1.keys(), lambda k: p1[k])
     if p1[wall_move] == p1[open_move]:
         best_move = wall_move
@@ -209,7 +212,8 @@ def most_open_strategy(board):
     logging.debug("most open move is: %s (%d) %s", best_move, p1[best_move], p1)
     return best_move
 
-def free_strategy(board):
+def most_free_move(board):
+    "Find the move that has the most immediate floor tiles."
     bestcount = -1
     bestmove = tron.NORTH
     for dir in board.moves():
@@ -223,13 +227,10 @@ def free_strategy(board):
             bestmove = dir
     return bestmove
 
-# preference order of directions
-ORDER = list(tron.DIRECTIONS)
-random.shuffle(ORDER)
-
-def wall_strategy(board):
+def follow_wall_move(board, order):
+    "Find a move that follows the wall, favoring the order given."
     decision = board.moves()[0]
-    for dir in ORDER:
+    for dir in order:
         dest = board.rel(dir)
         if not board.passable(dest):
             continue
@@ -239,11 +240,12 @@ def wall_strategy(board):
             break
     return decision
 
-def alphabeta_strategy(board):
+def minimax_move(board, finish_by=None):
     "Find a move based on an alpha-beta search of the game tree."
+    
     def make_cutoff(max_depth, stats):
         def cutoff(state, depth):
-            if env.need_to_hurry():
+            if finish_by and time.time() >= finish_by:
                 raise TimeAlmostUp()
             too_deep = depth > max_depth
             game_over = game.terminal_test(state)
@@ -276,8 +278,8 @@ def alphabeta_strategy(board):
         logging.debug('alphabeta time almost up %s %s', depth_limit, move)
         return best_completed_move
 
-def heatseeker_strategy(board):
-    "Use hotspots to identify and find targets."
+def hotspot_move(board):
+    "Find the move that targets the next hot spot."
     try:
         me = board.me()
         heat = heat_map(board)
@@ -289,17 +291,16 @@ def heatseeker_strategy(board):
         move = move_made(me, next_step)
         return move
     except KeyError:
-        return alphabeta_strategy(state)
+        return minimax_move(state)
 
-def shortest_path_strategy(board):
-    "Get close to the opponent then solve with alphabeta."
-    path = env.cpath
+def follow_path_move(board, path):
+    "Follow the given path."
     return move_made(board.me(), path[1])
 
-def same_dist_tiles_strategy(board):
+def same_dist_move(board, same_dist, order):
     "Try to draw a line through the same distance tiles."
-    first_point = env.same_dist[0]
-    last_point = env.same_dist[-1]
+    first_point = same_dist[0]
+    last_point = same_dist[-1]
     if board.passable(first_point):
         path = shortest_path(board, board.me(), first_point)
         return move_made(board.me(), path[1])
@@ -307,7 +308,7 @@ def same_dist_tiles_strategy(board):
         path = shortest_path(board, board.me(), last_point)
         return move_made(board.me(), path[1])
     else:
-        return most_open_strategy(board)
+        return most_open_move(board, order)
 
 # TODO: Test case on which_move which tests that index out of
 #       range no longer occurs when we have no move available
@@ -321,111 +322,46 @@ def same_dist_tiles_strategy(board):
 #       the opponent was already on it.
 
 #_____________________________________________________________________
-# Cache, Analysis, History, etc...
-#
-
-class Environment():
-    "Simple container for agent data."
-
-    def __init__(self, timed=True):
-        self.reset(timed)
-
-    def reset(self, timed=True):
-        time_limit = 1.0
-        self.first_move = True   # is this our first move or not?
-        self.walls = []          # a list of the walls on this board
-        self.bh = []             # history of all boards received
-        self.mph = []            # my position history
-        self.eph = []            # enemy's position history
-        self.mmh = []            # my move history
-        self.emh = []            # enemy's move history
-
-        self.mfm = deque()       # my future moves
-        self.ofm = deque()       # my opponents future moves
-
-        self.nmoves = 0          # number of moves seen
-
-        self.start_time = 0      # start time for this move
-        self.times = []          # time taken for each move
-        self.timed = timed
-        self.time_limit = time_limit    # initial time limit
-        self.connected = True    # are my opponent and I connected by squares
-        self.same_dist = None    # points that are the same distance (initially)
-        
-    def update(self, board):
-
-        self.nmoves += 1
-        self.start_time = time.time()
-        
-        # record board history for pattern recognition
-        self.bh.append(board)
-        
-        self.mph.append(board.me())
-        self.eph.append(board.them())
-
-        # capture initial info about the board on the first move
-        if self.first_move == True:
-            self.walls = find_walls(board)
-            self.first_move = False
-            self.same_dist = same_distance(board, board.me(), board.them())
-            self.artpt = articulation_points(board, board.me())
-        else:
-            self.mmh.append(move_made(self.mph[-2], self.mph[-1]))
-            self.emh.append(move_made(self.eph[-2], self.eph[-1]))
-
-        # distance assuming no obstacles
-        dist = distance(board.me(), board.them())
-        logging.debug('distance: %d', dist)
-
-        # shortest path between me and my enemy, or none if we're disconnected
-        if self.connected:
-            self.cpath = None
-            self.cdist = None
-            try:
-                self.cpath = shortest_path(board, board.me(), board.them())
-                self.cdist = moves_between(self.cpath)
-            except KeyError:
-                self.cpath = None
-                self.connected = False
-
-    def elapsed(self):
-        return time.time() - self.start_time
-
-    def record_time(self):
-        elapsed = self.elapsed()
-        self.times.append(elapsed)
-        return elapsed
-
-    def time_remaining(self):
-        return self.time_limit - self.elapsed()
-
-    def need_to_hurry(self):
-        return self.timed and self.time_remaining() < config.hurry
-            
-env = Environment()
-
-#_____________________________________________________________________
 # Main Decision Routine
 #
 
-def main_strategy(board):
+def which_move(board, start_time, order, same_dist):
     "Determine which move to make given the current board state."
 
+    # If I don't have any legal moves, its not even worth trying
+    # one of the other strategies. This is done here to support
+    # calling the other strategies from the command line.
+    if not adjacent_floor(board, board.me()):
+        logging.debug('no legal moves remaining; bypassign strategy')
+        return surrender_move(board)
+
+    # Calculate the shortest path from me to them. This is useful
+    # for a couple of different strategies, plus, it tells me if
+    # we are still connected or not.
+    try:
+        path_to_them = shortest_path(board, board.me(), board.them())
+    except KeyError:
+        path_to_them = None
+
+    # Calculate the points that are the same distance between me
+    # and them. 
+            
     # If we're no longer connected, we do not need to consider
     # the opponents moves at all. Instead, we should just focus
     # on using as much of the board as possible. The best strategy
     # I have for that at the moment is the most open strategy.
-    if not env.connected:
-        logging.debug('connected, so using most open')
-        return most_open_strategy(board)
+    if not path_to_them:
+        logging.debug('not connected, so using most open')
+        return most_open_move(board, order)
 
     # If we're close enough that minimax with alpha-beta pruning
     # is practical, then we should use that. It should return the
     # absolute best move if it can see far enough ahead in terms
     # of board space.
-    if env.cdist <= config.alphabeta_threshold:
+    if moves_between(path_to_them) <= config.alphabeta_threshold:
+        finish_by = start_time + config.time_limit - config.hurry
         logging.debug('within threshold, so using alphabeta')
-        return alphabeta_strategy(board)
+        return minimax_move(board, finish_by)
 
     # If there is a set of a few points that me and my opponent
     # are an equal distance from, then the are probably pretty
@@ -433,15 +369,15 @@ def main_strategy(board):
     # As such, go target those points. Once those points have
     # been achieved, just try to fill in the remaining space.
     # (I still have concerns about this one. Needs work.)
-    if len(env.same_dist) > 1 and len(env.same_dist) <= 4:
+    if len(same_dist) > 1 and len(same_dist) <= 4:
         logging.debug('targeting first same dist tile')
-        return same_dist_tiles_strategy(board)
+        return same_dist_move(board, same_dist, order)
 
     # If all else fails, lets just charge the opponent by taking
     # the shortest path to them and try to let the minimax with
     # alpha-beta pruning get us a victory.
     logging.debug('using shortest path to opponent')
-    return shortest_path_strategy(board)
+    return follow_path_move(board, path_to_them)
 
 def enable_logging(logfile, level=logging.DEBUG):
     "Enable logging to the specified logfile."
@@ -449,33 +385,33 @@ def enable_logging(logfile, level=logging.DEBUG):
 
 def mainloop():
 
+    order = list(tron.DIRECTIONS)
+    random.shuffle(order)
+    nmoves = 0
+    first_move = True
+
     # Start looping through all the boards, just like in the example.
     for board in tron.Board.generate():
 
-        # Capture various information about the board that
-        # is used in all the strategies. Also, update the common
-        # state object to reflect the opponents move.
-        env.update(board)
+        start_time = time.time()
+
+        if first_move:
+            same_dist = same_distance(board, board.me(), board.them())
+            first_move = False
 
         # Log the current move number.
-        logging.debug('move %d', env.nmoves)
-
-        # If I don't have any legal moves, its not even worth trying
-        # one of the other strategies. This is done here to support
-        # calling the other strategies from the command line.
-        if not adjacent_floor(board, board.me()):
-            logging.debug('no legal moves remaining; bypassign strategy')
-            tron.move(tron.NORTH)
-            continue
+        logging.debug('move %d', nmoves)
 
         # Call the configured strategy to determine the best move.
         # Then update the local state object and log a few details.
         # Finally, submit the move to the engine using the API.
-        my_move = main_strategy(board)
+        my_move = which_move(board, start_time, order, same_dist)
         logging.debug('chose %s', DIR_NAMES[my_move])
-        logging.debug("took %0.3f seconds", env.record_time())
+        logging.debug("took %0.3f seconds", time.time() - start_time)
         logging.debug('my new pos: %s', board.me())
         tron.move(my_move)
+
+        nmoves += 1
 
 #_____________________________________________________________________
 # Main Block
@@ -504,7 +440,6 @@ if __name__ == "__main__":
     if config.logfile:
         enable_logging(config.logfile)
     logging.debug('config: %s', config)
-    env.time_limit = config.time_limit
     if config.profile:
         cProfile.run('mainloop()', config.profile)
     else:
