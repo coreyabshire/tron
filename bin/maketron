@@ -1,19 +1,11 @@
 # maketron: builds my submission file
 
-# get rid of the old directories
-rm -rf build
-rm -rf dist
+FILE=~/Desktop/Tron.zip
 
-# create the new ones
-mkdir build
-mkdir dist
+# Remove it if its already there.
+if [ -e $FILE ]; then
+   rm $FILE
+fi
 
-# copy the starter package
-cp -R starters/python build
-
-# copy my code into it
-cp -R src/* build/python
-
-# create the submission file
-cd build/
-zip -r ../dist/tron.zip *
+# Build the new one.
+zip -rq $FILE engine maps *.py
