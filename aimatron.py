@@ -62,6 +62,7 @@ class TronGame(games.Game):
             next_state = TronState(next_board, next_to_move)
         else:
             next_state = TronState(state.board, next_to_move, move)
+            next_state.score_cache = state.score_cache
         state.move_cache[move] = next_state
         next_state.parent = state
         next_state.last_move = move

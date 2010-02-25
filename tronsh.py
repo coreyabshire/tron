@@ -5,5 +5,10 @@ import aimatron, screen
 import brandes, dijkstra
 import MyTronBot
 
-boards = [tronutils.read_board(b) for b in tronutils.list_files('maps/')]
-cases = [tronutils.read_board(b) for b in tronutils.list_files('cases/')]
+def load_map_dir(path):
+    return dict((b,tronutils.read_board(b)) for b in tronutils.list_files(path))
+
+logging.basicConfig(filename='log/online.log', level=logging.DEBUG, filemode='w')
+
+boards = load_map_dir('maps/')
+cases = load_map_dir('cases/')

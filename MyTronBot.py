@@ -18,7 +18,7 @@ argp.add_option("-l", "--log", dest="logfile", default=None)
 argp.add_option("--hurry", type="float", dest="hurry", default=0.05)
 argp.add_option("--profile", dest="profile", default=None)
 argp.add_option("--time_limit", dest="time_limit", type="float", default=1.0)
-argp.add_option("--ab_thresh", dest="ab_thresh", type="int", default=8)
+argp.add_option("--ab_thresh", dest="ab_thresh", type="int", default=14)
 
 # TODO: Test case on which_move which tests that index out of
 #       range no longer occurs when we have no move available
