@@ -7,66 +7,29 @@ from tronutils import *
 # AIMA Alpha-Beta Search Interface
 #
 
-# TODO: Need to find a reliable way to test this without
-#       putting something in place that I constantly have
-#       to modify. Maybe record some scenarios like I
-#       started before and write the test cases against it.
-
 class TimeAlmostUp():
     pass
+
+#_____________________________________________________________________
+# Simple Representation (one move at a time)
+#
 
 class TronState():
 
     def __init__(self, board, to_move, move1=None):
+
+        # The basic state information.
         self.board = board
         self.to_move = to_move
         self.move1 = move1
-        self._score = None
-        self._children = {}
-        self._available = None
-        self._adjacent = {}
-        try:
-            self._count_around = dfs_count_around(board)
-        except KeyError:
-            self._count_around = None
 
-    def adjacent(self, coords):
-        "Find all the moves possible from the current state."
-        if coords in self._adjacent:
-            return self._adjacent[coords]
-        else:
-            b = self.board # short-hand for the board in the current state
-            possible = [(d,b.rel(d, coords)) for d in tron.DIRECTIONS]
-            passable = [(d,pos) for (d,pos) in possible if b.passable(pos)]
-            self._adjacent[coords] = passable
-            return passable
+        # Caches to speed things up.
+        self.score_cache = None
+        self.move_cache = {}
 
-    def available(self):
-        "Find all the moves possible from the current state."
-        return self.adjacent(self.board.find(self.to_move))
-
-    @classmethod
-    def make_root(self, board, to_move):
-        root = TronState(board, to_move, None)
-        root.parent = None
-        root.last_move = None 
-        return root
-
-    def make_move(self, move):
-        if move in self._children:
-            logging.debug('cache hit on child')
-            return self._children[move]
-        next_to_move = opponent(self.to_move)
-        if self.move1:
-            next_board = try_move(self.board, next_to_move, self.move1)
-            next_board = try_move(next_board, self.to_move, move)
-            child = TronState(next_board, next_to_move)
-        else:
-            child = TronState(self.board, next_to_move, move)
-        self._children[move] = child
-        child.parent = self
-        child.last_move = move
-        return child
+        # The parent and last move are for listing the path.
+        self.parent = None
+        self.last_move = None 
 
     def list_moves(self):
         state = self
@@ -84,11 +47,25 @@ class TronGame(games.Game):
 
     def legal_moves(self, state):
         "Find all the moves possible from the current state."
-        return [d for (d,s) in state.available()]
+        pos = state.board.find(state.to_move)
+        return [move_made(pos, adj) for adj in adjacent(state.board, pos, is_floor)]
 
     def make_move(self, move, state):
         "Return the new state resulting from making the given move."
-        return state.make_move(move)
+        if move in state.move_cache:
+            logging.debug('cache hit on child')
+            return state.move_cache[move]
+        next_to_move = opponent(state.to_move)
+        if state.move1:
+            next_board = try_move(state.board, next_to_move, state.move1)
+            next_board = try_move(next_board, state.to_move, move)
+            next_state = TronState(next_board, next_to_move)
+        else:
+            next_state = TronState(state.board, next_to_move, move)
+        state.move_cache[move] = next_state
+        next_state.parent = state
+        next_state.last_move = move
+        return next_state
 
     def utility(self, state, player):
         "Determine the utility of the given terminal state for player."
@@ -102,37 +79,56 @@ class TronGame(games.Game):
         "Print the board to the console."
         print_board(state.board)
 
+#_____________________________________________________________________
+# Evaluation Function (very important)
+#
+
 def eval_fn(state):
     "Assign a score to this board relative to player."
-    if state._score:
-        logging.debug('cache hit on score: %0.2f', state._score)
-        return state._score
-    board, player = state.board, state.to_move
-    score = 0.0
-    if state._count_around:
-        p1, p2, t, touching = state._count_around
+
+    # Check the cache first, since computing it is expensive.
+    if state.score_cache:
+        logging.debug('cache hit on score: %0.2f', state.score_cache)
+        return state.score_cache
+    
+    try:
+        p1, p2, t, touching = dfs_count_around(state.board)
+
+        # Neither of us have space. So its a draw.
         if not (p1 or p2):
             score = -0.5
+
+        # I have no space, but they do. So I lose.
         elif not p1:
             score = -1.0
+
+        # They have no space, but I do. So I win.
         elif not p2:
             score = 1.0
+
+        # We both have space. Figure out who has more.
         else:
             m1, m2 = max(p1.values()), max(p2.values())
             total = m1 + m2
-            if total == 0.0:
-                score = -0.5
-            else: 
-                score = float(m1) / float(total) * 2.0 - 1.0
-    else:
-        score = -0.5 # one of the players disappears if they crash
+            score = float(m1) / float(total) * 2.0 - 1.0
+                
+    # KeyError occurs if one of the players disappear (i.e. they crashed)
+    except KeyError:
+        score = -0.5 
 
+    # Write out some debug messages.
     logging.debug('score %0.2f; %s', score, state.list_moves())
-    for line in board.board:
+    for line in state.board.board:
         logging.debug(line)
-    state._score = score
+
+    # Save this in case we need it again.
+    state.score_cache = score
     return score
 
+
+#_____________________________________________________________________
+# Cut-off Function (also very important)
+#
 
 def make_cutoff_fn(max_depth, stats, finish_by):
     "Create a cutoff function based on the given parameters."
@@ -150,6 +146,11 @@ def make_cutoff_fn(max_depth, stats, finish_by):
         
     return cutoff_fn
 
+
+#_____________________________________________________________________
+# Interface Function for the Bot
+#
+
 # Create a single instance of the game implementation to
 # use in interfacing to the AIMA alpha-beta search routine.
 game = TronGame() 
@@ -157,7 +158,7 @@ game = TronGame()
 def alphabeta_search(board, finish_by=None):
     "Find a move based on an alpha-beta search of the game tree."
     best_completed_move = board.moves()[0]
-    state = TronState.make_root(board, tron.ME)
+    state = TronState(board, tron.ME)
     try:
         for depth_limit in xrange(sys.maxint):
             stats = utils.Struct(nodes=0, max_depth=0)

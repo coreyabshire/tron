@@ -1,5 +1,5 @@
 import unittest
-import tron, tronutils, MyTronBot
+import tron, tronutils, MyTronBot, aimatron
 
 #_____________________________________________________________________
 # Board Helper Tests
@@ -174,8 +174,8 @@ class AlphaBetaTestCase(unittest.TestCase):
 
     def setUp(self):
         board = tronutils.read_board('maps/test-board.txt')
-        self.game = MyTronBot.TronGame()
-        self.state = MyTronBot.TronState.make_root(board, tron.ME)
+        self.game = aimatron.TronGame()
+        self.state = aimatron.TronState(board, tron.ME)
 
     def test_legal_moves(self):
         self.assertEquals(self.game.legal_moves(self.state), [tron.SOUTH])
@@ -209,44 +209,44 @@ class AlphaBetaTestCase(unittest.TestCase):
 
     def test_score(self):
         board = tronutils.read_board('maps/test-board.txt')
-        state = MyTronBot.TronState.make_root(board, tron.ME)
+        state = aimatron.TronState(board, tron.ME)
 
         # very simple open board; should tie
-        self.assertEquals(state.score(), 0.0)
+        self.assertEquals(aimatron.eval_fn(state), 0.0)
 
         # very simple closed board; should also tie
         board.board[2] = '# ####'
-        state = MyTronBot.TronState.make_root(board, tron.ME)
-        self.assertEquals(state.score(), 0.0)
+        state = aimatron.TronState(board, tron.ME)
+        self.assertEquals(aimatron.eval_fn(state), 0.0)
 
         # advantage me
         board.board[2] = '#  ###'
-        state = MyTronBot.TronState.make_root(board, tron.ME)
+        state = aimatron.TronState(board, tron.ME)
         a = 1.0 / 3.0
-        self.assertAlmostEqual(state.score(), a)
+        self.assertAlmostEqual(aimatron.eval_fn(state), a)
 
         # advantage them
         board.board[2] = '# # ##'
-        state = MyTronBot.TronState.make_root(board, tron.ME)
+        state = aimatron.TronState(board, tron.ME)
         a = 1.0 / 3.0
-        self.assertAlmostEqual(state.score(), -a)
+        self.assertAlmostEqual(aimatron.eval_fn(state), -a)
 
         # I'm stuck
         board.board[2] = '######'
-        state = MyTronBot.TronState.make_root(board, tron.ME)
-        self.assertEquals(state.score(), -1.0)
+        state = aimatron.TronState(board, tron.ME)
+        self.assertEquals(aimatron.eval_fn(state), -1.0)
         
         # they're stuck
         board.board[1] = '#1##2#'
         board.board[2] = '#   ##'
-        state = MyTronBot.TronState.make_root(board, tron.ME)
-        self.assertEquals(state.score(), 1.0)
+        state = aimatron.TronState(board, tron.ME)
+        self.assertEquals(aimatron.eval_fn(state), 1.0)
 
         # both stuck - make sure doesn't divide by zero!
         board.board[1] = '#1##2#'
         board.board[2] = '######'
-        state = MyTronBot.TronState.make_root(board, tron.ME)
-        self.assertEquals(state.score(), -0.5)
+        state = aimatron.TronState(board, tron.ME)
+        self.assertEquals(aimatron.eval_fn(state), -0.5)
 
 #_____________________________________________________________________
 # Shortest Path Tests
