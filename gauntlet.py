@@ -5,6 +5,7 @@
 # here before I upload and try to compete on the server.
 
 import os, sys, subprocess
+from tronutils import list_files
 
 def make_command(mapfile, bot1, bot2):
     "Format a command to run a game in the engine for Popen."
@@ -31,10 +32,6 @@ def play_game(mapfile, bot1, bot2):
     for line in process.stdout.readlines():
         result = line.strip()
     return classify_result(result)
-
-def list_files(path):
-    "Lists all the files in path, including path as the prefix."
-    return [path + filename for filename in os.listdir(path)]
 
 def run_gauntlet(mapfiles, bot1, bot2):
     "Run the bots on all the specified mapfiles."

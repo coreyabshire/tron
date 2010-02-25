@@ -1,4 +1,4 @@
-import sys
+import os, sys
 from collections import deque
 import dijkstra, brandes
 import tron
@@ -15,6 +15,10 @@ DIR_ABBRS = dict(zip(DIR_NAMES.keys(), [s[0] for s in DIR_NAMES.values()]))
 #_____________________________________________________________________
 # Board Helper Functions
 #
+
+def list_files(path):
+    "Lists all the files in path, including path as the prefix."
+    return [path + filename for filename in os.listdir(path)]
 
 def read_board(filename):
     "Read a board from a map file."
