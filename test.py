@@ -98,22 +98,6 @@ class BoardHelperTestCase(unittest.TestCase):
         self.assertEquals(len(wall), 3)
         self.assertEquals(len(floor), 1)
 
-    def test_surrounding_offset_array(self):
-        soa = MyTronBot.surrounding_offset_array()
-        self.assertEqual(len(soa), 9)
-        self.assertEqual(soa[0], (-1,-1))
-        self.assertEqual(soa[4], (0,0))
-        self.assertEqual(soa[8], (1,1))
-
-    def test_offset(self):
-        self.assertEquals(MyTronBot.offset((1,1),(1,1)),(2,2))
-        self.assertEquals(MyTronBot.offset((3,4),(-1,-1)),(2,3))
-        self.assertEquals(MyTronBot.offset((3,2),(1,0)),(4,2))
-    
-    def test_surrounding_nonfloor(self):
-        board = tronutils.read_board('maps/test-board.txt')
-        self.assertEquals(len(MyTronBot.surrounding_nonfloor(board,(1,2))),5)
-
     def test_move_made(self):
         board = tronutils.read_board('maps/test-board.txt')
         fn = lambda a,b: MyTronBot.move_made(a, b)

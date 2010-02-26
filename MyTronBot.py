@@ -18,7 +18,7 @@ argp.add_option("-l", "--log", dest="logfile", default=None)
 argp.add_option("--hurry", type="float", dest="hurry", default=0.05)
 argp.add_option("--profile", dest="profile", default=None)
 argp.add_option("--time_limit", dest="time_limit", type="float", default=1.0)
-argp.add_option("--ab_thresh", dest="ab_thresh", type="int", default=14)
+argp.add_option("--ab_thresh", dest="ab_thresh", type="int", default=6)
 
 # TODO: Test case on which_move which tests that index out of
 #       range no longer occurs when we have no move available
@@ -65,8 +65,8 @@ def which_move(board, start_time, order, same_dist):
     # is practical, then we should use that. It should return the
     # absolute best move if it can see far enough ahead in terms
     # of board space.
+    finish_by = start_time + config.time_limit - 0.1
     if moves_between(path_to_them) <= config.ab_thresh:
-        finish_by = start_time + config.time_limit - config.hurry
         logging.debug('within threshold, so using alphabeta')
         return minimax_move(board, finish_by)
 

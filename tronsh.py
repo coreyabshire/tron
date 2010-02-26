@@ -12,3 +12,5 @@ logging.basicConfig(filename='log/online.log', level=logging.DEBUG, filemode='w'
 
 boards = load_map_dir('maps/')
 cases = load_map_dir('cases/')
+
+board = cases['cases/empty-room-002.txt']

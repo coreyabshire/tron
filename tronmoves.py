@@ -58,7 +58,13 @@ def follow_wall_move(board, order):
 
 def minimax_move(board, finish_by=None):
     "Find a move based on an alpha-beta search of the game tree."
-    return alphabeta_search(board, finish_by)
+    game = TronGame()
+    return alphabeta_search(board, game, finish_by)
+
+def chunky_minimax_move(board, n, finish_by=None):
+    "Find a move based on an alpha-beta search of the game tree."
+    game = TronChunkyGame(n)
+    return alphabeta_search(board, game, finish_by)
 
 def hotspot_move(board):
     "Find the move that targets the next hot spot."

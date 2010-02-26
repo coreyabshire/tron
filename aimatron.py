@@ -47,13 +47,12 @@ class TronGame(games.Game):
 
     def legal_moves(self, state):
         "Find all the moves possible from the current state."
-        pos = state.board.find(state.to_move)
-        return [move_made(pos, adj) for adj in adjacent(state.board, pos, is_floor)]
+        a = state.board.find(state.to_move)
+        return [move_made(a, b) for b in adjacent(state.board, a, is_floor)]
 
     def make_move(self, move, state):
         "Return the new state resulting from making the given move."
         if move in state.move_cache:
-            logging.debug('cache hit on child')
             return state.move_cache[move]
         next_to_move = opponent(state.to_move)
         if state.move1:
@@ -79,6 +78,65 @@ class TronGame(games.Game):
     def display(self, state):
         "Print the board to the console."
         print_board(state.board)
+
+    def move_to_return(self, move):
+        return move
+
+class TronChunkyGame(TronGame):
+    "A representation of Tron compatible with AIMA alpha-beta."
+
+    def __init__(self, n):
+        self.patterns = [
+            (tron.NORTH, tron.EAST, tron.WEST, tron.SOUTH),
+            (tron.NORTH, tron.WEST, tron.EAST, tron.SOUTH),
+            (tron.SOUTH, tron.WEST, tron.EAST, tron.NORTH),
+            (tron.SOUTH, tron.EAST, tron.WEST, tron.NORTH),
+            (tron.EAST, tron.NORTH, tron.SOUTH, tron.WEST),
+            (tron.EAST, tron.SOUTH, tron.NORTH, tron.WEST),
+            (tron.WEST, tron.SOUTH, tron.NORTH, tron.EAST),
+            (tron.WEST, tron.NORTH, tron.SOUTH, tron.EAST)]
+        self.n = n
+
+    def legal_moves(self, state):
+        "Find all the moves possible from the current state."
+        me = state.board.find(state.to_move)
+        moves = set([])
+        for pattern in self.patterns:
+            board = state.board
+            coords = board.find(state.to_move)
+            path = follow_pattern(board, coords, pattern, self.n)
+            if path:
+                moves.add(path)
+        return [move for move in moves]
+
+    def make_move(self, move, state):
+        "Return the new state resulting from making the given move."
+        if move in state.move_cache:
+            logging.debug('cache hit on child')
+            return state.move_cache[move]
+        next_to_move = opponent(state.to_move)
+        if state.move1:
+            board = state.board
+            for i in range(self.n):
+                try:
+                    next_board = board
+                    next_board = try_move(next_board, next_to_move, state.move1[i])
+                    next_board = try_move(next_board, state.to_move, move[i])
+                    board = next_board
+                except KeyError:
+                    break
+            next_state = TronState(board, next_to_move)
+        else:
+            next_state = TronState(state.board, next_to_move, move)
+            next_state.score_cache = state.score_cache
+        state.move_cache[move] = next_state
+        next_state.parent = state
+        next_state.last_move = move
+        return next_state
+
+    def move_to_return(self, move):
+        return move[0]
+
 
 #_____________________________________________________________________
 # Evaluation Function (very important)
@@ -118,7 +176,7 @@ def eval_fn(state):
         score = -0.5 
 
     # Write out some debug messages.
-    logging.debug('score %0.2f; %s', score, state.list_moves())
+    logging.debug('score %0.2f', score)
     for line in state.board.board:
         logging.debug(line)
 
@@ -131,7 +189,7 @@ def eval_fn(state):
 # Cut-off Function (also very important)
 #
 
-def make_cutoff_fn(max_depth, stats, finish_by):
+def make_cutoff_fn(max_depth, stats, finish_by, game):
     "Create a cutoff function based on the given parameters."
     
     def cutoff_fn(state, depth):
@@ -140,7 +198,7 @@ def make_cutoff_fn(max_depth, stats, finish_by):
             raise TimeAlmostUp()
         stats.nodes += 1
         stats.max_depth = max(stats.max_depth, depth)
-        if depth > max_depth or game.terminal_test(state):
+        if depth >= max_depth or game.terminal_test(state):
             return True
         else:
             return False
@@ -152,24 +210,21 @@ def make_cutoff_fn(max_depth, stats, finish_by):
 # Interface Function for the Bot
 #
 
-# Create a single instance of the game implementation to
-# use in interfacing to the AIMA alpha-beta search routine.
-game = TronGame() 
-
-def alphabeta_search(board, finish_by=None):
+def alphabeta_search(board, game, finish_by=None):
     "Find a move based on an alpha-beta search of the game tree."
     best_completed_move = board.moves()[0]
     state = TronState(board, tron.ME)
     try:
-        for depth_limit in xrange(sys.maxint):
+        for depth_limit in xrange(2, sys.maxint, 2):
             stats = utils.Struct(nodes=0, max_depth=0)
-            cutoff_fn = make_cutoff_fn(depth_limit, stats, finish_by)
+            cutoff_fn = make_cutoff_fn(depth_limit, stats, finish_by, game)
             move = games.alphabeta_search(state, game, None, cutoff_fn, eval_fn)
             logging.debug('alphabeta %s %s (%s)', depth_limit, move, stats)
             if stats.nodes <= 2:
-                return move
+                return game.move_to_return(move)
             else:
-                best_completed_move = move
+                best_completed_move = game.move_to_return(move)
     except TimeAlmostUp:
-        logging.debug('alphabeta time almost up %s %s', depth_limit, move)
+        logging.debug('alphabeta time almost up %s %s', depth_limit, \
+                          DIR_ABBRS[best_completed_move])
         return best_completed_move

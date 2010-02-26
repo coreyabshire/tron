@@ -51,6 +51,25 @@ def run_fill(board, move_fn, player=tron.ME, dump=False):
         path.append(coords)
     return path
         
+def follow_pattern(board, coords, pattern, n):
+    path = []
+    used = set([])
+    pos = coords
+    for i in range(n):
+        adj = adjacent(board, pos, is_floor)
+        found_one = False
+        for dir in pattern:
+            dest = board.rel(dir, pos)
+            if board.passable(dest) and dest not in used:
+                used.add(dest)
+                path.append(dir)
+                pos = dest
+                found_one = True
+                break
+        if not found_one:
+            return None
+    return tuple(path)
+        
 def set_char(s, i, c):
     "Return a copy of s with the character at index i replaced with c."
     return s[:i] + c + s[i+1:]
@@ -84,22 +103,9 @@ def tiles_matching(board, fn):
                 tiles.append((y,x))
     return tiles
 
-def adjacent(board, coords, fn):
+def adjacent(board, coords, predicate):
     "Find all tiles on board adjacent to coords matching fn."
-    return [a for a in board.adjacent(coords) if fn(board, a)]
-
-def surrounding_offset_array():
-    z = [-1, 0, 1]
-    return [(s,t) for t in z for s in z]
-
-SOA = surrounding_offset_array()
-
-def offset((y,x), (t,s)):
-    return (y+t, x+s)
-
-def surrounding_nonfloor(board, origin):
-    a = [offset(origin, o) for o in SOA]
-    return [c for c in a if board[c] != tron.FLOOR]
+    return [a for a in board.adjacent(coords) if predicate(board, a)]
 
 def move_made((y1,x1),(y2,x2)):
     "Return the move needed to get from a to b. Assumes adjacency."
@@ -108,8 +114,8 @@ def move_made((y1,x1),(y2,x2)):
     elif x2 > x1: return tron.EAST
     else        : return tron.WEST
 
-def distance((y1,x1),(y2,x2)):
-    return abs(x2-x1) + abs(y2-y1)
+def distance((y1, x1), (y2, x2)):
+    return abs(x2 - x1) + abs(y2 - y1)
     
 def is_game_over(board):
     "Determine whether this board is at an end game state."
