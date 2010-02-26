@@ -1,24 +1,25 @@
-import os, sys
+# Utilities library for a TronBot for the Google AI Challenge 2010
+# Corey Abshire, February 2010
+
+import os, sys, random, tron, dijkstra, brandes
 from collections import deque
-import dijkstra, brandes
-import tron
 
 #_____________________________________________________________________
 # Constants and Enumerations
 #
 
-DIR_NAMES = { tron.NORTH : 'NORTH', tron.SOUTH : 'SOUTH',
-              tron.EAST  : 'EAST',  tron.WEST  : 'WEST' }
+# Dictionary for translating direction codes to names.
+DIR_NAMES = { tron.NORTH : 'NORTH' ,
+              tron.SOUTH : 'SOUTH' ,
+              tron.EAST  : 'EAST'  ,
+              tron.WEST  : 'WEST'  }
 
+# Dictionary for translating direction codes to abbreviations.
 DIR_ABBRS = dict(zip(DIR_NAMES.keys(), [s[0] for s in DIR_NAMES.values()]))
 
 #_____________________________________________________________________
-# Board Helper Functions
+# Board File I/O
 #
-
-def list_files(path):
-    "Lists all the files in path, including path as the prefix."
-    return [path + filename for filename in os.listdir(path)]
 
 def read_board(filename):
     "Read a board from a map file."
@@ -42,38 +43,14 @@ def print_board(board):
     for line in board.board:
         print line
 
-def run_fill(board, move_fn, player=tron.ME, dump=False):
-    path = []
-    while not is_game_over(board):
-        move = move_fn(board)
-        board = try_move(board, player, move)
-        coords = board.me()
-        path.append(coords)
-    return path
-        
-def follow_pattern(board, coords, pattern, n):
-    path = []
-    used = set([])
-    pos = coords
-    for i in range(n):
-        adj = adjacent(board, pos, is_floor)
-        found_one = False
-        for dir in pattern:
-            dest = board.rel(dir, pos)
-            if board.passable(dest) and dest not in used:
-                used.add(dest)
-                path.append(dir)
-                pos = dest
-                found_one = True
-                break
-        if not found_one:
-            return None
-    return tuple(path)
-        
-def set_char(s, i, c):
-    "Return a copy of s with the character at index i replaced with c."
-    return s[:i] + c + s[i+1:]
-    
+def list_files(path):
+    "Lists all the files in path, including path as the prefix."
+    return [path + filename for filename in os.listdir(path)]
+
+#_____________________________________________________________________
+# Board Manipulation and Querying
+#
+
 def valid_coords(board, (y,x)):
     "Are the coordinates within the board dimensions?"
     return 0 <= y < board.height and 0 <= x < board.width
@@ -86,13 +63,12 @@ def tile_is_a(kind_of):
     return fn
 
 def invert(fn):
+    "Create a function that returns the logical inverse of the given function."
     return lambda *args: not fn(*args)
 
 is_wall = tile_is_a(tron.WALL)
 is_floor = tile_is_a(tron.FLOOR)
 is_nonwall = invert(tile_is_a(tron.WALL))
-
-adjacent_floor = lambda board, coords: adjacent(board, coords, is_floor)
 
 def tiles_matching(board, fn):
     "Collect all tiles on the board matching fn."
@@ -107,16 +83,33 @@ def adjacent(board, coords, predicate):
     "Find all tiles on board adjacent to coords matching fn."
     return [a for a in board.adjacent(coords) if predicate(board, a)]
 
-def move_made((y1,x1),(y2,x2)):
-    "Return the move needed to get from a to b. Assumes adjacency."
-    if   y2 < y1: return tron.NORTH
-    elif y2 > y1: return tron.SOUTH
-    elif x2 > x1: return tron.EAST
-    else        : return tron.WEST
-
-def distance((y1, x1), (y2, x2)):
-    return abs(x2 - x1) + abs(y2 - y1)
+def set_char(s, i, c):
+    "Return a copy of s with the character at index i replaced with c."
+    return s[:i] + c + s[i+1:]
     
+def try_move(board, p, d):
+    "Create a copy of board where player p is moved in direction d."
+    lines = [line for line in board.board] # shallow copy
+    (y1,x1) = board.find(p)
+    (y2,x2) = board.rel(d, (y1,x1))
+    lines[y1] = set_char(lines[y1], x1, tron.WALL)
+    lines[y2] = set_char(lines[y2], x2, p)
+    return tron.Board(board.width, board.height, lines)
+
+def run_fill(board, move_fn, player=tron.ME, max_len=sys.maxint):
+    "Apply move_fn repeatedly to build a path on the board."
+    path = []
+    while not is_game_over(board) and len(path) < max_len:
+        move = move_fn(board)
+        board = try_move(board, player, move)
+        coords = board.me()
+        path.append(coords)
+    return path
+        
+#_____________________________________________________________________
+# Board Game Logic
+#
+
 def is_game_over(board):
     "Determine whether this board is at an end game state."
     try:
@@ -144,15 +137,6 @@ def win_lose_or_draw(board, player):
     else:
         return -0.5
 
-def try_move(board, p, d):
-    "Create a copy of board where player p is moved in direction d."
-    lines = [line for line in board.board] # shallow copy
-    (y1,x1) = board.find(p)
-    (y2,x2) = board.rel(d, (y1,x1))
-    lines[y1] = set_char(lines[y1], x1, tron.WALL)
-    lines[y2] = set_char(lines[y2], x2, p)
-    return tron.Board(board.width, board.height, lines)
-
 def opponent(player):
     "Determine the opposite player."
     if player == tron.ME:
@@ -160,7 +144,22 @@ def opponent(player):
     else:
         return tron.ME
 
-def points_around(board, coords, around=adjacent_floor):
+def move_made((y1,x1),(y2,x2)):
+    "Return the move needed to get from a to b. Assumes adjacency."
+    if   y2 < y1: return tron.NORTH
+    elif y2 > y1: return tron.SOUTH
+    elif x2 > x1: return tron.EAST
+    else        : return tron.WEST
+
+def distance((y1, x1), (y2, x2)):
+    "Compute the distance in moves between two tiles."
+    return abs(x2 - x1) + abs(y2 - y1)
+
+#_____________________________________________________________________
+# Board Analysis
+#
+    
+def points_around(board, coords, predicate=is_floor):
     "All the open spaces around coords."
     # http://mail.python.org/pipermail/image-sig/2005-September/003559.html
     count = 0
@@ -169,7 +168,7 @@ def points_around(board, coords, around=adjacent_floor):
     while edge:
         newedge = []
         for tile in edge:
-            for adj in around(board, tile):
+            for adj in adjacent(board, tile, is_floor):
                 if adj not in seen:
                     count += 1
                     seen.add(adj)
@@ -177,9 +176,9 @@ def points_around(board, coords, around=adjacent_floor):
         edge = newedge
     return seen
 
-def count_around(board, coords, around=adjacent_floor):
+def count_around(board, coords, predicate=is_floor):
     "Count of all spaces around coords."
-    return len(points_around(board, coords, around))
+    return len(points_around(board, coords, predicate))
 
 def anticipate(board, coords, pattern, num_moves):
     pos = coords
@@ -191,7 +190,6 @@ def anticipate(board, coords, pattern, num_moves):
         if j >= len(pattern):
             j = 0
     return pos
-
 
 class Adjacent():
     "Dictionary for adjacent tiles on a Tron board."
@@ -239,7 +237,15 @@ def shortest_path(board, start, end, test=is_nonwall):
 
 def moves_between(path):
     "Number of moves it would take for two players to traverse the path."
+    # The path includes both the players tiles, so we just subtract
+    # those 2 from the length of the path to get the moves between.
     return len(path) - 2
+
+def dijkstra_map(board, start, end, test=is_nonwall):
+    "Run Dijkstra's algorithm and return the distance map."
+    d, p = dijkstra.Dijkstra(DijkstraGraph(board, test), start, end)
+    return d
+    
 
 #_____________________________________________________________________
 # Depth First Search
@@ -357,7 +363,6 @@ def components(board):
 # Environment Recognition
 #
 
-# TODO: add a test for this
 def find_walls(board):
     "Find all the walls (contingous series of wall tiles)."
     wall_tiles_remaining = set(tiles_matching(board, is_wall))
@@ -377,15 +382,14 @@ def find_walls(board):
         walls.append(wall)
     return walls
 
-# TODO: find a way to test this (its non-deterministic)
-def heat_map(board, paths=20, dump=False):
+def heat_map(board, paths=20):
     "Identify hotspots by counting coordinate hits on random paths."
     points = [p for p in points_around(board, board.me())]
     heat = {}
     max_heat = 0
     for v in points:
         heat[v] = 0
-    for i in range(paths):
+    for i in xrange(paths):
         a = random.choice(points)
         b = random.choice(points)
         p = shortest_path(board, a, b, is_floor)
@@ -393,14 +397,6 @@ def heat_map(board, paths=20, dump=False):
             heat[v] += 1
             if heat[v] > max_heat:
                 max_heat = heat[v]
-    if dump:
-        for y in xrange(board.height):
-            for x in xrange(board.width):
-                if (y,x) in heat:
-                    print int((float(heat[y,x]) / max_heat) * 9.0),
-                else:
-                    print board[y,x],
-            print
     return heat
 
 def distance_map(board, coords):

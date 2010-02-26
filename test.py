@@ -1,3 +1,6 @@
+# Unit tests for my TronBot entry.
+# Corey Abshire, February 2010
+
 import unittest
 import tron, tronutils, MyTronBot, aimatron
 

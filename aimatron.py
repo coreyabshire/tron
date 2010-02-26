@@ -1,20 +1,29 @@
+# Tron Game implementation based on the AIMA game framework
+# for minimax searching with alpha-beta pruning. This is for
+# the Google AI Challenge 2010.
+# Corey Abshire, February 2010
+
 import logging, time
 import games, utils
 import tron
 from tronutils import *
 
-#_____________________________________________________________________
-# AIMA Alpha-Beta Search Interface
-#
 
 class TimeAlmostUp():
+    "Exception class that represents when move submission is due."
     pass
 
-#_____________________________________________________________________
-# Simple Representation (one move at a time)
-#
 
 class TronState():
+    "Represents a single game state for minimax search."
+
+    # This state is slightly different than normal to represent
+    # the fact that Tron players make their moves simultaneously.
+    # Normally, minimax expects the players to take turns.
+
+    # This class implements simultenous moves by simply caching the
+    # first move and not updating the board when its made. Then,
+    # when the second move is made, it applies both moves.
 
     def __init__(self, board, to_move, move1=None):
 
@@ -27,20 +36,6 @@ class TronState():
         self.score_cache = None
         self.move_cache = {}
 
-        # The parent and last move are for listing the path.
-        self.parent = None
-        self.last_move = None 
-
-    def list_moves(self):
-        state = self
-        moves = []
-        while state:
-            if state.parent:
-                d = DIR_ABBRS[state.last_move]
-                moves.append("%s,%s" % (state.parent.to_move, d))
-            state = state.parent
-        moves.reverse()
-        return moves
 
 class TronGame(games.Game):
     "A representation of Tron compatible with AIMA alpha-beta."
@@ -52,19 +47,35 @@ class TronGame(games.Game):
 
     def make_move(self, move, state):
         "Return the new state resulting from making the given move."
+
+        # We gain some efficiency here by treating the states as a
+        # tree and caching the children for the next time we build it.
+        # If this move has already been applied for this state in this
+        # particular tree, return that instead of recomputing.
         if move in state.move_cache:
             return state.move_cache[move]
+        
         next_to_move = opponent(state.to_move)
+
         if state.move1:
+            # The first move has already been made, so apply both
+            # moves to the board to create the next state.
             next_board = try_move(state.board, next_to_move, state.move1)
             next_board = try_move(next_board, state.to_move, move)
             next_state = TronState(next_board, next_to_move)
+            
         else:
+            # This is the first move for this turn. Do not update
+            # the board. Just cache this move and wait for the next one.
+            # Since the board is not updated, the position should
+            # still evaluate to the same score.
             next_state = TronState(state.board, next_to_move, move)
             next_state.score_cache = state.score_cache
+
+        # Cache this work so we don't have to repeat it during
+        # the iterative deepening search.
         state.move_cache[move] = next_state
-        next_state.parent = state
-        next_state.last_move = move
+        
         return next_state
 
     def utility(self, state, player):
@@ -75,12 +86,11 @@ class TronGame(games.Game):
         "Determine whether the current state is a leaf state."
         return is_game_over(state.board)
 
-    def display(self, state):
-        "Print the board to the console."
-        print_board(state.board)
-
     def move_to_return(self, move):
+        "Translate this move into what should be returned to the bot."
+        # Useless for this one, but required for the chunky bot.
         return move
+
 
 class TronChunkyGame(TronGame):
     "A representation of Tron compatible with AIMA alpha-beta."
@@ -99,15 +109,14 @@ class TronChunkyGame(TronGame):
 
     def legal_moves(self, state):
         "Find all the moves possible from the current state."
-        me = state.board.find(state.to_move)
-        moves = set([])
+        moves = []
         for pattern in self.patterns:
-            board = state.board
             coords = board.find(state.to_move)
-            path = follow_pattern(board, coords, pattern, self.n)
-            if path:
+            move_fn = lambda board: follow_wall_move(board, pattern)
+            path = run_fill(state.board, move_fn, max_len=self.n)
+            if path and path not in moves:
                 moves.add(path)
-        return [move for move in moves]
+        return moves
 
     def make_move(self, move, state):
         "Return the new state resulting from making the given move."
@@ -119,10 +128,8 @@ class TronChunkyGame(TronGame):
             board = state.board
             for i in range(self.n):
                 try:
-                    next_board = board
-                    next_board = try_move(next_board, next_to_move, state.move1[i])
-                    next_board = try_move(next_board, state.to_move, move[i])
-                    board = next_board
+                    board = try_move(board, next_to_move, state.move1[i])
+                    board = try_move(board, state.to_move, move[i])
                 except KeyError:
                     break
             next_state = TronState(board, next_to_move)
@@ -135,6 +142,7 @@ class TronChunkyGame(TronGame):
         return next_state
 
     def move_to_return(self, move):
+        "Translate this move into what should be returned to the bot."
         return move[0]
 
 
@@ -153,19 +161,23 @@ def eval_fn(state):
     try:
         p1, p2, t, touching = dfs_count_around(state.board)
 
-        # Neither of us have space. So its a draw.
+        # Neither of us have space.
+        # Thus, it's a draw.
         if not (p1 or p2):
             score = -0.5
 
-        # I have no space, but they do. So I lose.
+        # I have no space, but they do.
+        # Thus, I lose.
         elif not p1:
             score = -1.0
 
-        # They have no space, but I do. So I win.
+        # They have no space, but I do.
+        # Thus, I win.
         elif not p2:
             score = 1.0
 
-        # We both have space. Figure out who has more.
+        # We both have some space available.
+        # Whoever has more is most likely to win.
         else:
             m1, m2 = max(p1.values()), max(p2.values())
             total = m1 + m2
@@ -192,39 +204,60 @@ def eval_fn(state):
 def make_cutoff_fn(max_depth, stats, finish_by, game):
     "Create a cutoff function based on the given parameters."
     
+    # This cutoff function is pretty simple. Basically it
+    # does the normal depth test, in support of the iterative
+    # deepening search, along with the required terminal test.
+
+    # The main thing it adds is the time check. Whenever this
+    # is called it checks if its nearing the deadline for
+    # submitting the move and throws an exception that will
+    # be caught by the search, so that the best completed move
+    # so far can be returned on time to the game engine.
+
     def cutoff_fn(state, depth):
         "Determine whether to cutoff the search."
+        
         if finish_by and time.time() >= finish_by:
             raise TimeAlmostUp()
+        
         stats.nodes += 1
         stats.max_depth = max(stats.max_depth, depth)
-        if depth >= max_depth or game.terminal_test(state):
-            return True
-        else:
-            return False
+        
+        return depth >= max_depth or game.terminal_test(state)
         
     return cutoff_fn
 
 
 #_____________________________________________________________________
-# Interface Function for the Bot
+# Primary Interface for the Bot
 #
 
 def alphabeta_search(board, game, finish_by=None):
     "Find a move based on an alpha-beta search of the game tree."
+
+    # Pick at least some default to move if we're really slow.
+    # We also keep it updated each level further we go down.
     best_completed_move = board.moves()[0]
-    state = TronState(board, tron.ME)
+    
     try:
+        state = TronState(board, tron.ME)
+
+        # Use iterative deepening search around the AIMA minimax
+        # algorithm (the one that uses alpha-beta pruning and allows
+        # the search to be cutoff and evaluated early. We deepen by
+        # 2 to account for the way the moves are handled simultaneously
+        # by the game class to match the production engine.
         for depth_limit in xrange(2, sys.maxint, 2):
+
             stats = utils.Struct(nodes=0, max_depth=0)
             cutoff_fn = make_cutoff_fn(depth_limit, stats, finish_by, game)
             move = games.alphabeta_search(state, game, None, cutoff_fn, eval_fn)
-            logging.debug('alphabeta %s %s (%s)', depth_limit, move, stats)
+
+            # Return this move if we didn't get any deeper.
             if stats.nodes <= 2:
                 return game.move_to_return(move)
             else:
                 best_completed_move = game.move_to_return(move)
+                
     except TimeAlmostUp:
-        logging.debug('alphabeta time almost up %s %s', depth_limit, \
-                          DIR_ABBRS[best_completed_move])
         return best_completed_move
