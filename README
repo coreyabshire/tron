@@ -16,6 +16,19 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+This includes the following files:
+
+  aimatron.py
+  brandes.py
+  gauntlet.py
+  MyTronBot.py
+  screen.py
+  showprof.py
+  spectate.py
+  test.py
+  tronsh.py
+  tronutils.py
 ___________________________________________________________________
 
 AIMA MIT License Notice
@@ -26,6 +39,11 @@ Stuart Russell. That code is available on the web under the MIT
 License at the following URL:
 
 http://code.google.com/p/aima-python/
+
+This includes the following files:
+
+  games.py
+  utils.py
 ___________________________________________________________________
 
 Dijkstra and Priority Dictionary License Notice
@@ -40,6 +58,30 @@ http://code.activestate.com/recipes/119466/
 
 According to that website, the code is released under
 the PSF License.
+
+This includes the following files:
+
+  dijkstra.py
+  priodict.py
+___________________________________________________________________
+
+Python Starter License Notice
+
+Some of the files in this package are from the python starter
+package provided on the competition website. The python starter 
+was created by Robert Xiao and is available at the following URL:
+
+http://csclub.uwaterloo.ca/contest/starter_packages.php
+
+The starter package is released under the BSD license.
+
+This includes the following files:
+
+  freebot.py
+  tron.py
+  northbot.py
+  wallbot.py
+  randbot.py
 ___________________________________________________________________
 
 Welcome to my entry into the Google AI Challenge 2010. My entry
