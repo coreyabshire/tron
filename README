@@ -50,3 +50,46 @@ However, it is a pretty easy to understand implementation, and I
 learned a lot from participating. I decided to release it online
 in case anyone else once to study it, learn from it, and make any
 suggestions for improving it.
+
+Here are the features of MyTronBot, as key elements of my strategy:
+
+ 1. Minimax search with alpha-beta pruning, dynamic time based
+    cutoff, and evaluation based on counting each direction from
+	the stopping points of each player for the final position.
+
+ 2. Detection of points of contention, and dynamic targeting of
+    such points within a given range, as an initial strategy.
+
+ 3. Shortest path detection between myself and my opponent and
+    targeting that path as a far strategy.
+	
+ 4. Depth first search counting as a general fill strategy dynamically
+    selected when the board is bisected, as a complement to
+	a wall walking strategy.
+
+The code also includes a few other elements for things that I 
+experimented with but chose not to include in my final strategy:
+
+ 1. Detection of articulation points. A depth first search of
+    the tree reveals points which when crossed bisect the floor.
+
+ 2. Chunky minimax, wherein instead of moving 1 tile per move
+    the successors function moved several.
+	
+ 3. Detection of components, as independent rooms on the board
+    that are completely separated by walls.
+
+ 4. Detection and enumeration of independent wall segments.
+
+It would be nice to enhance this bot further in the future and
+include logic from even more sources.
+
+Hopefully releasing this code encourages others to do the same.
+I really enjoyed this competition and look forward to learning
+from my fellow participants in the coming weeks.
+
+Thank you Google and the University of Waterloo for putting on
+a really great competition this year!
+
+Corey Abshire, 2010
+corey.abshire@gmail.com

@@ -8,4 +8,4 @@ if [ -e $FILE ]; then
 fi
 
 # Build the new one.
-zip -rq $FILE engine maps *.py
+zip -rq $FILE engine maps *.py *.txt README
