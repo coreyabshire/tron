@@ -1,5 +1,18 @@
-# Utilities library for a TronBot for the Google AI Challenge 2010
-# Corey Abshire, February 2010
+# tronutils: Utilities library for a TronBot for the Google AI Challenge 2010
+# Copyright (C) 2010 Corey Abshire
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os, sys, random, tron, dijkstra, brandes
 from collections import deque
@@ -53,7 +66,8 @@ def list_files(path):
 
 def valid_coords(board, (y,x)):
     "Are the coordinates within the board dimensions?"
-    return 0 <= y < board.height and 0 <= x < board.width
+    return 0 <= y < board.height \
+       and 0 <= x < board.width
 
 def tile_is_a(kind_of):
     "Return a tile matcher that checks if the tile at coords is kind_of."
@@ -62,46 +76,46 @@ def tile_is_a(kind_of):
             return board[coords] == kind_of
     return fn
 
-def invert(fn):
-    "Create a function that returns the logical inverse of the given function."
-    return lambda *args: not fn(*args)
+def invert(predicate):
+    "Create the logical inverse of the given predicate."
+    return lambda *args: not predicate(*args)
 
 is_wall = tile_is_a(tron.WALL)
 is_floor = tile_is_a(tron.FLOOR)
 is_nonwall = invert(tile_is_a(tron.WALL))
 
-def tiles_matching(board, fn):
+def tiles_matching(board, predicate):
     "Collect all tiles on the board matching fn."
     tiles = []
     for y in xrange(board.height):
         for x in xrange(board.width):
-            if fn(board, (y,x)):
+            if predicate(board, (y,x)):
                 tiles.append((y,x))
     return tiles
 
 def adjacent(board, coords, predicate):
-    "Find all tiles on board adjacent to coords matching fn."
+    "Find all tiles on board adjacent to coords matching the predicate."
     return [a for a in board.adjacent(coords) if predicate(board, a)]
 
 def set_char(s, i, c):
     "Return a copy of s with the character at index i replaced with c."
     return s[:i] + c + s[i+1:]
     
-def try_move(board, p, d):
-    "Create a copy of board where player p is moved in direction d."
+def apply_move(board, player, move):
+    "Create a copy of board where move has been applied to player."
     lines = [line for line in board.board] # shallow copy
-    (y1,x1) = board.find(p)
-    (y2,x2) = board.rel(d, (y1,x1))
+    (y1,x1) = board.find(player)
+    (y2,x2) = board.rel(move, (y1,x1))
     lines[y1] = set_char(lines[y1], x1, tron.WALL)
-    lines[y2] = set_char(lines[y2], x2, p)
+    lines[y2] = set_char(lines[y2], x2, player)
     return tron.Board(board.width, board.height, lines)
 
-def run_fill(board, move_fn, player=tron.ME, max_len=sys.maxint):
+def apply_move_fn(board, move_fn, player=tron.ME, max_len=sys.maxint):
     "Apply move_fn repeatedly to build a path on the board."
     path = []
     while not is_game_over(board) and len(path) < max_len:
         move = move_fn(board)
-        board = try_move(board, player, move)
+        board = apply_move(board, player, move)
         coords = board.me()
         path.append(coords)
     return path
@@ -252,6 +266,7 @@ def dijkstra_map(board, start, end, test=is_nonwall):
 #
 
 def articulation_points(board, root):
+    "Find the points that if were filled would separate the board."
     sys.setrecursionlimit(2500)
     V = set(); A = Adjacent(board, is_floor)
     L = {}; N = {}; c = [0]; P = {}; X = set()
@@ -272,12 +287,12 @@ def articulation_points(board, root):
     f(root)
     return X
 
-def dfs2(root, A, visited = None, preorder_process = lambda x: None):
+def root_dfs(root, A, visited=None, preorder_process=lambda x: None):
     "Given a starting vertex, root, do a depth-first search."
-    # see http://en.wikipedia.org/wiki/Depth-first_search#Implementation_in_Python
-    to_visit = []  # a list can be used as a stack in Python
+    # see http://en.wikipedia.org/wiki/Depth-first_search python impl.
+    to_visit = []
     if visited is None: visited = set()
-    to_visit.append(root) # Start with root
+    to_visit.append(root)
     while len(to_visit) != 0:
         v = to_visit.pop()
         if v not in visited:
@@ -286,6 +301,7 @@ def dfs2(root, A, visited = None, preorder_process = lambda x: None):
             to_visit.extend(A[v])
 
 def touching(t):
+    "Determine which player directions are touching (connected by floor)."
     for c in t:
         p = set(p for p,d in c)
         if tron.ME in p and tron.THEM in p:
@@ -293,6 +309,7 @@ def touching(t):
     return False
 
 def dfs_count_around(board):
+    "Use DFS to count all the spaces on the board around either player."
     N = [tron.ME, tron.THEM]
     A = Adjacent(board, is_floor)
     P = [board.me(), board.them()]
@@ -302,7 +319,7 @@ def dfs_count_around(board):
     while remaining:
         u = remaining.pop()
         V = set([])
-        dfs2(u, A, V)
+        root_dfs(u, A, V)
         c = len(V)
         t = []
         for i in range(len(P)):
@@ -345,13 +362,15 @@ def dfs(V,A):
     return d, f, pi, max_depth[0], n[0]
 
 def depth_first_search(board):
+    "Run DFS on a Tron board. Return starts, finishes, preds, depth, numbering."
     V = tiles_matching(board, is_floor)
     A = Adjacent(board, is_floor)
     return dfs(V, A)
 
-def components(board):
-    A = Adjacent(board, is_floor)
-    Va = tiles_matching(board, is_floor)
+def components(board, predicate=is_floor):
+    "Return the components on board."
+    A = Adjacent(board, predicate)
+    Va = tiles_matching(board, predicate)
     d,f,pi = dfs(Va,A)
     Vb = f.keys()
     Vb.sort(key=lambda x: f[x])

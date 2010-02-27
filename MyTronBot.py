@@ -1,4 +1,19 @@
 #!/usr/bin/python
+# MyTronBot. Entry of corey.abshire into the Google AI Challenge 2010.
+# Copyright (C) 2010 Corey Abshire
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """TronBot implementation by Corey Abshire."""
 
@@ -6,15 +21,13 @@ import optparse, logging, time, cProfile, tron
 from tronutils import *
 from tronmoves import *
 
-
 argp = optparse.OptionParser()
 argp.add_option("--log", default=None)
 argp.add_option("--hurry", type="float", default=0.1)
 argp.add_option("--profile", default=None)
 argp.add_option("--time-limit", type="float", default=1.0)
 argp.add_option("--considered-near", type="int", default=6)
-argp.add_option("--same-dist-limit", type="int", default=5)
-
+argp.add_option("--same-dist-limit", type="int", default=16)
 
 def which_move(board, start_time, same_dist):
     "Determine which move to make given the current board."
@@ -67,7 +80,6 @@ def which_move(board, start_time, same_dist):
     logging.debug('using shortest path to opponent')
     return follow_path_move(board, path_to_them)
 
-
 def mainloop():
     "The main TronBot game loop."
 
@@ -100,11 +112,9 @@ def mainloop():
         tron.move(my_move)
         move_number += 1
 
-
 def enable_logging(logfile, level=logging.DEBUG):
     "Enable logging to the specified logfile."
     logging.basicConfig(filename=logfile, level=level, filemode='w')
-
 
 if __name__ == "__main__":
     config, args = argp.parse_args()

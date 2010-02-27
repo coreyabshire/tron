@@ -1,5 +1,18 @@
-# Unit tests for my TronBot entry.
-# Corey Abshire, February 2010
+# test: Unit tests for my TronBot entry.
+# Copyright (C) 2010 Corey Abshire
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
 import tron, tronutils, MyTronBot, aimatron
@@ -23,13 +36,15 @@ class BoardHelperTestCase(unittest.TestCase):
 
     def test_adjacent_nonwall(self):
         board = tronutils.read_board('maps/test-board.txt')
-        self.assertEqual(MyTronBot.adjacent_floor(board, board.me()), [(2,1)])
-        self.assertEqual(MyTronBot.adjacent_floor(board, board.them()), [(1,3)])
+        fn = lambda pos: tronutils.adjacent(board, pos, tronutils.is_nonwall)
+        self.assertEqual(fn(board.me()), [(2,1)])
+        self.assertEqual(fn(board.them()), [(1,3)])
         
     def test_adjacent_floor(self):
         board = tronutils.read_board('maps/test-board.txt')
-        self.assertEqual(MyTronBot.adjacent_floor(board, board.me()), [(2,1)])
-        self.assertEqual(MyTronBot.adjacent_floor(board, board.them()), [(1,3)])
+        fn = lambda pos: tronutils.adjacent(board, pos, tronutils.is_floor)
+        self.assertEqual(fn(board.me()), [(2,1)])
+        self.assertEqual(fn(board.them()), [(1,3)])
 
     def test_valid_coords(self):
         board = tronutils.read_board('maps/test-board.txt')
@@ -128,12 +143,12 @@ class BoardHelperTestCase(unittest.TestCase):
         self.assertEqual(tronutils.set_char('abc',1,'d'), 'adc')
         self.assertEqual(tronutils.set_char('abc',2,'d'), 'abd')
 
-    def test_try_move(self):
+    def test_apply_move(self):
         board = tronutils.read_board('maps/test-board.txt')
         self.assertEquals(board.me(), (1,1))
         self.assertEquals(board.them(), (1,4))
         self.assertEquals(board[2,1], tron.FLOOR, 'should be FLOOR')
-        next = MyTronBot.try_move(board, tron.ME, tron.SOUTH)
+        next = MyTronBot.apply_move(board, tron.ME, tron.SOUTH)
         self.assertEquals(next.me(), (2,1), 'should have changed')
         self.assertEquals(next.them(), (1,4), 'should not have changed')
         self.assertEquals(next[1,1], tron.WALL, 'should now be WALL')

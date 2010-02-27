@@ -1,18 +1,27 @@
-# Tron Game implementation based on the AIMA game framework
-# for minimax searching with alpha-beta pruning. This is for
-# the Google AI Challenge 2010.
-# Corey Abshire, February 2010
+# aimatron: Interfaces the AIMA games framework to Tron (for minimax).
+# Copyright (C) 2010 Corey Abshire
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging, time
 import games, utils
 import tron
 from tronutils import *
 
-
 class TimeAlmostUp():
     "Exception class that represents when move submission is due."
     pass
-
 
 class TronState():
     "Represents a single game state for minimax search."
@@ -35,7 +44,6 @@ class TronState():
         # Caches to speed things up.
         self.score_cache = None
         self.move_cache = {}
-
 
 class TronGame(games.Game):
     "A representation of Tron compatible with AIMA alpha-beta."
@@ -60,8 +68,8 @@ class TronGame(games.Game):
         if state.move1:
             # The first move has already been made, so apply both
             # moves to the board to create the next state.
-            next_board = try_move(state.board, next_to_move, state.move1)
-            next_board = try_move(next_board, state.to_move, move)
+            next_board = apply_move(state.board, next_to_move, state.move1)
+            next_board = apply_move(next_board, state.to_move, move)
             next_state = TronState(next_board, next_to_move)
             
         else:
@@ -91,7 +99,6 @@ class TronGame(games.Game):
         # Useless for this one, but required for the chunky bot.
         return move
 
-
 class TronChunkyGame(TronGame):
     "A representation of Tron compatible with AIMA alpha-beta."
 
@@ -113,7 +120,7 @@ class TronChunkyGame(TronGame):
         for pattern in self.patterns:
             coords = board.find(state.to_move)
             move_fn = lambda board: follow_wall_move(board, pattern)
-            path = run_fill(state.board, move_fn, max_len=self.n)
+            path = apply_move_fn(state.board, move_fn, max_len=self.n)
             if path and path not in moves:
                 moves.add(path)
         return moves
@@ -128,8 +135,8 @@ class TronChunkyGame(TronGame):
             board = state.board
             for i in range(self.n):
                 try:
-                    board = try_move(board, next_to_move, state.move1[i])
-                    board = try_move(board, state.to_move, move[i])
+                    board = apply_move(board, next_to_move, state.move1[i])
+                    board = apply_move(board, state.to_move, move[i])
                 except KeyError:
                     break
             next_state = TronState(board, next_to_move)
@@ -144,7 +151,6 @@ class TronChunkyGame(TronGame):
     def move_to_return(self, move):
         "Translate this move into what should be returned to the bot."
         return move[0]
-
 
 #_____________________________________________________________________
 # Evaluation Function (very important)
@@ -196,7 +202,6 @@ def eval_fn(state):
     state.score_cache = score
     return score
 
-
 #_____________________________________________________________________
 # Cut-off Function (also very important)
 #
@@ -226,7 +231,6 @@ def make_cutoff_fn(max_depth, stats, finish_by, game):
         return depth >= max_depth or game.terminal_test(state)
         
     return cutoff_fn
-
 
 #_____________________________________________________________________
 # Primary Interface for the Bot

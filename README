@@ -1,0 +1,52 @@
+MyTronBot. An entry in the Google AI Challenge 2010.
+Copyright (C) 2010 Corey Abshire
+___________________________________________________________________
+
+MyTronBot License Notice
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+___________________________________________________________________
+
+AIMA MIT License Notice
+
+Some files in this package are from the code that accompanies
+Artificial Intelligence: A Modern Approach, by Peter Norvig and 
+Stuart Russell. That code is available on the web under the MIT
+License at the following URL:
+
+http://code.google.com/p/aima-python/
+___________________________________________________________________
+
+Dijkstra and Priority Dictionary License Notice
+
+Some of the files in this package are from recipes on the
+ActiveState home page, and were written by David Eppstein,
+UC Irvine. Those portions of the code are available on the
+web at the following URL's.
+
+http://code.activestate.com/recipes/117228/
+http://code.activestate.com/recipes/119466/
+
+According to that website, the code is released under
+the PSF License.
+___________________________________________________________________
+
+Welcome to my entry into the Google AI Challenge 2010. My entry
+is a pretty straightforward implementation of many of the algorithms
+that eventually made their way to being published on the forum. 
+Thus, it doesn't end up doing all that great in the actual competition.
+However, it is a pretty easy to understand implementation, and I
+learned a lot from participating. I decided to release it online
+in case anyone else once to study it, learn from it, and make any
+suggestions for improving it.
