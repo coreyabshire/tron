@@ -97,7 +97,7 @@ Here are the features of MyTronBot, as key elements of my strategy:
 
  1. Minimax search with alpha-beta pruning, dynamic time based
     cutoff, and evaluation based on counting each direction from
-	the stopping points of each player for the final position.
+    the stopping points of each player for the final position.
 
  2. Detection of points of contention, and dynamic targeting of
     such points within a given range, as an initial strategy.
@@ -107,7 +107,7 @@ Here are the features of MyTronBot, as key elements of my strategy:
 	
  4. Depth first search counting as a general fill strategy dynamically
     selected when the board is bisected, as a complement to
-	a wall walking strategy.
+    a wall walking strategy.
 
 The code also includes a few other elements for things that I 
 experimented with but chose not to include in my final strategy:
